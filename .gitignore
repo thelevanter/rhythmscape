@@ -1,0 +1,140 @@
+# ============================================================================
+# Rhythmscape — .gitignore
+# ============================================================================
+
+# --- Secrets & API keys ---
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+secrets/
+credentials/
+
+# --- Data (raw + processed) ---
+data/
+!data/.gitkeep
+!data/README.md
+
+# --- Outputs (generated reports) ---
+outputs/
+!outputs/.gitkeep
+
+# --- OSM / geodata (large binaries) ---
+*.pbf
+*.osm
+*.shp
+*.shx
+*.dbf
+*.prj
+*.sbn
+*.sbx
+*.geojson.gz
+*.parquet
+*.feather
+*.arrow
+*.gdb/
+*.mbtiles
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# --- Testing / coverage ---
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+ENV/
+
+# --- uv / poetry ---
+.uv/
+uv.lock
+poetry.lock
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+*.ipynb_checkpoints/
+
+# --- Logs ---
+logs/
+*.log
+
+# --- OS: macOS ---
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+
+# --- OS: Windows ---
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# --- Editors / IDEs ---
+.vscode/
+!.vscode/settings.json.example
+.idea/
+*.swp
+*.swo
+*~
+
+# --- Claude Code ---
+.claude/
+CLAUDE.local.md
+
+# --- Temporary / scratch ---
+tmp/
+scratch/
+*.tmp
+*.bak
+*.orig
+
+# --- Demo video artifacts ---
+demo-raw/
+*.mov
+*.mkv
+*.mp4
+!docs/demo-final.mp4
+
+# --- Built docs ---
+docs/_build/
+site/
+
+# --- Distribution ---
+*.tar.gz
+*.zip
