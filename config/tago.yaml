@@ -1,0 +1,44 @@
+tago:
+  api_base: https://apis.data.go.kr/1613000
+  api_key_env: TAGO_API_KEY
+  city:
+    name: changwon
+    code: 38010
+  routes:
+    - routeid: CWB379002710
+      route_no: "271"
+      route_type: 지선/순환
+      theoretical_role: 마산합포 박물관 루프 — 도심 내부 리듬
+    - routeid: CWB379060000
+      route_no: BRT6000
+      route_type: 좌석/BRT급행
+      theoretical_role: 성주사역↔덕동 — automobility 포획 사례
+    - routeid: CWB379007100
+      route_no: "710"
+      route_type: 좌석
+      theoretical_role: 불모산↔마산대 — 광역 부재의 증상적 대체
+  collection:
+    window_start: "07:00"
+    window_end: "19:00"
+    timezone: Asia/Seoul
+    poll_interval_sec: 60
+    http_timeout_sec: 10
+    retry_attempts: 3
+  limits:
+    daily_call_budget: 2160
+    hard_quota_code: "22"
+    unregistered_key_code: "30"
+  storage:
+    raw_base: data/raw/tago
+    processed_base: data/processed/tago
+    checkpoint_dir: data/checkpoints/tago
+    logs_dir: logs/tago
+    parquet_compression: snappy
+  observability:
+    log_level: INFO
+    log_format: json
+    log_rotation_daily: true
+
+reproducibility:
+  random_seed: 42
+  record_params_path: data/processed/tago/provenance/{date}.json

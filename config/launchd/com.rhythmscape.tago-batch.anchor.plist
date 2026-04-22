@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+	</dict>
+	<key>KeepAlive</key>
+	<false/>
+	<key>Label</key>
+	<string>com.rhythmscape.tago-batch.anchor</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/dw/G-Drive2T/current_writings/Claude_Hackathon/rhythmscape/.venv/bin/python</string>
+		<string>-m</string>
+		<string>rhythmscape.ingest.tago.scheduler</string>
+		<string>--mode</string>
+		<string>anchor</string>
+		<string>--config</string>
+		<string>/Users/dw/G-Drive2T/current_writings/Claude_Hackathon/rhythmscape/config/tago.yaml</string>
+	</array>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>StandardErrorPath</key>
+	<string>/Users/dw/G-Drive2T/current_writings/Claude_Hackathon/rhythmscape/logs/tago/launchd.anchor.err</string>
+	<key>StandardOutPath</key>
+	<string>/Users/dw/G-Drive2T/current_writings/Claude_Hackathon/rhythmscape/logs/tago/launchd.anchor.out</string>
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Hour</key>
+		<integer>6</integer>
+		<key>Minute</key>
+		<integer>55</integer>
+	</dict>
+	<key>WorkingDirectory</key>
+	<string>/Users/dw/G-Drive2T/current_writings/Claude_Hackathon/rhythmscape</string>
+</dict>
+</plist>
