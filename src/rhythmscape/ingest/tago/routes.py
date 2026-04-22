@@ -219,27 +219,34 @@ def save_route_stations(
     return path
 
 
-def select_sentinels(
+def select_observatories(
     route_stations_df: pd.DataFrame,
     strategy: str = "quarters_dir0",
 ) -> pd.DataFrame:
-    """Pick sentinel stations per route for Expected-layer polling.
+    """Pick strategic rhythmic observatories per route for Expected-layer polling.
+
+    "Observatory" rather than "sentinel": the station is theorized as a
+    Lefebvrean listening post for polyrhythmia, not a checkpoint. See
+    ``docs/analysis/sentinel_rationale.md`` for the full selection
+    rationale and its RDI interpretation binding.
 
     Day 1 (2026-04-23) empirical finding: the naive "mid" strategy landed on
-    terminal/turnaround stations for bidirectional routes (BRT6000 node 39 =
-    덕동공영차고지, 710 node 54 = 마산대학교종점). Arrivals API at a terminal
-    returns 0 because buses at the terminal are not "arriving" — they have
-    already arrived. New default restricts to ``updowncd==0`` (forward leg)
-    and picks three interior points (1/4, 1/2, 3/4) per route, avoiding both
-    termini. 9 stations × 720 ticks/day = 6,480 calls — well under the 10k
-    per-endpoint quota. Sentinel theory remains a Cowork review item.
+    terminal/turnaround stations for bidirectional routes (BRT6000 nodeord 39
+    = 덕동공영차고지, 710 nodeord 54 = 마산대학교종점). Arrivals API at a
+    terminal returns 0 because buses at the terminal are not "arriving" —
+    they have already arrived. Default now restricts to ``updowncd==0``
+    (forward leg) and picks three interior ordinal points (n/4, n/2, 3n/4)
+    per route, avoiding both termini. 9 observatories × 720 ticks/day =
+    6,480 calls, well under the 10k per-endpoint quota.
 
     Strategies
     ----------
-    - ``"quarters_dir0"`` (default): direction 0 only, nodeord at n/4, n/2,
-      3n/4. Three sentinels per route, terminal-free, single-direction.
-    - ``"mid"``: single sentinel at ``nodeord ≈ len/2`` across both directions
-      (legacy; subject to terminal collision on bidirectional routes).
+    - ``"quarters_dir0"`` (default): direction 0 only, nodeord at n/4,
+      n/2, 3n/4. Three observatories per route, terminal-free,
+      single-direction.
+    - ``"mid"``: single observatory at ``nodeord ≈ len/2`` across both
+      directions (legacy; subject to terminal collision on bidirectional
+      routes).
     - ``"end"`` / ``"start"``: terminal picks — diagnostic use only.
     """
     if route_stations_df.empty:

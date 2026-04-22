@@ -45,7 +45,7 @@ from rhythmscape.ingest.tago.routes import (
     fetch_routes,
     save_route_stations,
     save_routes,
-    select_sentinels,
+    select_observatories,
 )
 from rhythmscape.ingest.tago.stations import fetch_stations, save_stations
 
@@ -329,18 +329,21 @@ def run_minute_tick(cfg: Config) -> int:
         return 99
 
     route_stations_df = pd.read_parquet(route_stations_path)
-    sentinels_df = select_sentinels(route_stations_df, strategy="quarters_dir0")
+    observatories_df = select_observatories(route_stations_df, strategy="quarters_dir0")
     station_ids = [
-        str(x) for x in sentinels_df["nodeid"].dropna().unique().tolist()
+        str(x) for x in observatories_df["nodeid"].dropna().unique().tolist()
     ]
     if not station_ids:
-        log.error("tick_no_sentinel_stations", hint="route_stations parquet is empty")
+        log.error(
+            "tick_no_observatories",
+            hint="route_stations parquet is empty",
+        )
         return 99
 
     log.info(
         "tick_start",
         route_ids=cfg.route_ids,
-        sentinels=station_ids,
+        observatories=station_ids,
         snapshot_iso=now_local.isoformat(),
     )
 
