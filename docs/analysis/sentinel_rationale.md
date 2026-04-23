@@ -52,9 +52,32 @@ vehicle read at a late one. This is a Lefebvrean positioning — not at
 points of intrinsic geographic interest (which would require a prior
 theory of *where* rhythms break, which we do not yet have), but at
 positions that render the *accumulation of discordance along the
-route-sequence* legible. The grid is neutral; its uniformity is the
-point, because it lets the rhythm do the interpretive work rather than
-the site.
+route-sequence* legible.
+
+The quartile grid functions as a **contrastive baseline** against
+thematic observatories introduced in later phases (Day 3 onward:
+transfer hubs, inflection points). Rhythm itself does not interpret;
+the grid is an **apparatus of suspended bias** — a device that defers
+the observer's selection bias so that thematic positions, when added,
+are not tautologically confirmed by what they were chosen to see. The
+interpretive subject is the observer (케이 + Cowork + Claude Code), and
+the grid supplies the comparable space within which interpretation can
+operate. To claim that the pattern "speaks for itself" from the
+quartile data would be the phenomenological trap Foucault identified
+in interpretive hermeneutics: reading a surface as if its meaning were
+immanent, rather than produced by the grid that made it visible.[^1]
+
+[^1]: Foucault, *La volonté de savoir* (*History of Sexuality* vol. 1,
+1976). Foucault's critique of the "repressive hypothesis" turns on
+the point that the discursive apparatus which makes sexuality
+legible — confession, medicine, pedagogy — is not a neutral conduit
+for a pre-existing truth but the condition of possibility for what
+counts as a truth-of-sexuality at all. Translated to the observatory
+grid: the quartile positions do not reveal a pre-existing route
+rhythm; they constitute the comparable space within which "rhythm"
+becomes an analyzable object. The temptation to treat the grid's
+uniformity as epistemically innocent is the same temptation Foucault
+names — and refuses.
 
 ## What this foundation excludes (deferred to Day 2–3)
 
