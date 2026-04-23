@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import argparse
 import subprocess
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import geopandas as gpd
@@ -329,19 +329,31 @@ def save_ardi(gdf: gpd.GeoDataFrame, out_path: Path) -> Path:
 def run_for_city(
     city: str,
     pbf_path: Path,
-    processed_base: Path = Path("data/processed/osm"),
+    osm_base: Path = Path("data/processed/osm"),
+    ardi_base: Path = Path("data/processed/ardi"),
     cell_size_m: int = 500,
     weights: dict | None = None,
+    for_date: date | None = None,
 ) -> dict:
-    """End-to-end: pbf → highways → grid → components → ARDI_v0 → parquet."""
-    geojson_path = processed_base / f"{city}_highway.geojson"
+    """End-to-end: pbf → highways → grid → components → ARDI_v0 → parquet.
+
+    Outputs under ``ardi_base`` with a date-stamped filename so multiple
+    city runs coexist. Intermediate GeoJSON stays under ``osm_base``.
+    """
+    if for_date is None:
+        from zoneinfo import ZoneInfo
+
+        for_date = datetime.now(tz=ZoneInfo("Asia/Seoul")).date()
+
+    geojson_path = osm_base / f"{city}_highway.geojson"
     export_highways_geojson(pbf_path, geojson_path)
     highways = load_highways(geojson_path)
     bounds = tuple(highways.to_crs("EPSG:4326").total_bounds)
     grid = build_grid(bounds, cell_size_m=cell_size_m)
     grid_comp = compute_components(grid, highways)
     ardi = compute_ardi_v0(grid_comp, weights)
-    out_path = processed_base / f"ardi_v0_{city}.parquet"
+    stamp = for_date.strftime("%Y%m%d")
+    out_path = ardi_base / f"ardi_{city}_{stamp}.parquet"
     save_ardi(ardi, out_path)
     return {
         "city": city,
@@ -356,36 +368,89 @@ def run_for_city(
     }
 
 
+def _load_city_slugs(cities_yaml: Path) -> list[str]:
+    import yaml
+
+    with cities_yaml.open("r", encoding="utf-8") as fh:
+        cfg = yaml.safe_load(fh)
+    return sorted((cfg.get("cities") or {}).keys())
+
+
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Compute ARDI v0 for one city.")
-    parser.add_argument("--city", type=str, required=True)
+    parser = argparse.ArgumentParser(description="Compute ARDI v0 per city.")
+    parser.add_argument(
+        "--city",
+        type=str,
+        default=None,
+        help="Single city slug. Mutually exclusive with --all.",
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Run for every city in --cities manifest.",
+    )
+    parser.add_argument(
+        "--cities",
+        type=Path,
+        default=Path("config/cities.yaml"),
+    )
     parser.add_argument(
         "--pbf",
         type=Path,
         default=None,
-        help="Path to city-clipped OSM PBF. Defaults to data/processed/osm/{city}.pbf",
+        help="Single-city override path. Ignored with --all.",
     )
     parser.add_argument(
-        "--processed-base",
+        "--osm-base",
         type=Path,
         default=Path("data/processed/osm"),
+    )
+    parser.add_argument(
+        "--ardi-base",
+        type=Path,
+        default=Path("data/processed/ardi"),
+    )
+    parser.add_argument(
+        "--date",
+        type=str,
+        default=None,
+        help="YYYYMMDD for output filename (default: today Asia/Seoul)",
     )
     parser.add_argument("--cell-size-m", type=int, default=500)
     args = parser.parse_args(argv)
 
-    pbf_path = args.pbf or (args.processed_base / f"{args.city}.pbf")
-    if not pbf_path.exists():
-        print(f"ERROR: PBF not found: {pbf_path}")
-        return 2
+    if not args.all and args.city is None:
+        parser.error("either --city <slug> or --all is required")
+    if args.all and args.city is not None:
+        parser.error("--city and --all are mutually exclusive")
 
-    r = run_for_city(args.city, pbf_path, args.processed_base, cell_size_m=args.cell_size_m)
-    print(
-        f"✓ {r['city']}  cells={r['n_cells']:<5}  with_roads={r['n_cells_with_roads']:<5}  "
-        f"mean_ARDI={r['mean_ardi']:.4f}  max_ARDI={r['max_ardi']:.4f}  "
-        f"mean_rsr={r['mean_road_space_ratio']:.4f}  mean_sr={r['mean_speed_regime']:.4f}  "
-        f"ways={r['n_ways_loaded']}"
-    )
-    print(f"  → {r['out_path']}")
+    if args.date:
+        for_date = datetime.strptime(args.date, "%Y%m%d").date()
+    else:
+        from zoneinfo import ZoneInfo
+
+        for_date = datetime.now(tz=ZoneInfo("Asia/Seoul")).date()
+
+    cities = _load_city_slugs(args.cities) if args.all else [args.city]
+    for city in cities:
+        pbf = args.pbf if args.pbf and not args.all else (args.osm_base / f"{city}.pbf")
+        if not pbf.exists():
+            print(f"✗ {city:<20} SKIP: PBF not found at {pbf}")
+            continue
+        r = run_for_city(
+            city=city,
+            pbf_path=pbf,
+            osm_base=args.osm_base,
+            ardi_base=args.ardi_base,
+            cell_size_m=args.cell_size_m,
+            for_date=for_date,
+        )
+        print(
+            f"✓ {r['city']:<20} cells={r['n_cells']:<5} roads={r['n_cells_with_roads']:<5} "
+            f"mean_ARDI={r['mean_ardi']:.4f}  max={r['max_ardi']:.4f}  "
+            f"rsr={r['mean_road_space_ratio']:.4f}  sr={r['mean_speed_regime']:.4f}  "
+            f"ways={r['n_ways_loaded']}"
+        )
     return 0
 
 
