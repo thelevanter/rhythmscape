@@ -335,14 +335,30 @@ Day 3 회의에서 Cowork가 즉시 인용 가능한 산출물:
 5. `docs/analysis/sejongbis_scrape_plan.md` — Day 3 스크래핑 즉시 실행 가이드
 6. `docs/analysis/night_collection_rationale.md` — 야간 plist 업데이트 근거 + 실행 계획
 
-### 내일 첫 과업 순서 (Day 3, 07:00~)
+### 내일 첫 과업 순서 (Day 3, 07:00~) — Cowork 저녁 지시로 스코프 확장 (2026-04-23 저녁 갱신)
 
-1. **07:00~07:30** 재입장: 위 6 산출물 + build-log 읽기
-2. **07:30~08:30** RQ 최종 결정 회의 (Cowork + 케이)
-3. **08:30~08:45** 야간 수집 plist 업데이트 (10분 stride 옵션 추가 → gen_launchd_intervals.py 확장 필요) + launchctl reload
-4. **08:45~09:30** 세종 스크래핑 모듈 실행 + 세종 RDI 재포함
-5. **09:30~** RQ 결정에 따른 다음 분석 (ARDI 또는 PRM 또는 다른 축)
-6. **저녁**: post-19:59 재산출 + 3도시 완전 17-19 band dressage 교차표 확보 → Day 3 최종 프리뷰
+**오전 (07:00~12:00) — 원안 그대로 유지**
+1. **07:00~07:30** 재입장: 위 6 산출물 + build-log + `decisions/20260424_morning_rq_decision.md`(Obsidian, Cowork 작성) 읽기
+2. **07:30~08:30** RQ 최종 결정 회의 (Cowork + 케이). 잠정 합의: RQ1·RQ2·RQ3·RQ4 병렬 유지, RQ5만 메타서사로 수렴. Day 5 아침에 최종 확정.
+3. **08:30~08:45** 야간 수집 plist 업데이트 (10분 stride 옵션 추가 → `gen_launchd_intervals.py` `minute_entries()` 확장 필요) + launchctl reload
+4. **08:45~09:30** 세종 스크래핑 모듈 실행 (`bis.sejong.go.kr` / `sejongbis_scrape_plan.md` 가이드) + 세종 RDI 재산출
+5. **09:30~12:00** post-19:59 재산출 + 3도시 완전 dressage 교차표 확정 (Day 2 저녁 미완분 마무리) + dressage 시간대 분포 재실행
+
+**오후 (13:00~18:00) — ARDI 진입 허용 (신규)**
+
+6. **13:00~18:00** **창원 ARDI v0 구현** — `src/rhythmscape/metrics/ardi.py` 신설. MVP 수식 `road_space_ratio + speed_regime`(CLAUDE.md §3). 1도시 먼저, 4도시 일반화는 Day 4 오전. RQ3(자동차 잔여 텍스처) + RQ1(공간 지표 보강) 공동 선행 투자. OSM 창원 클립(`data/processed/osm/changwon.pbf`, Day 1 준비분) 입력.
+
+**저녁 (19:00~22:00) — PRM 설계 문서 착수 (신규)**
+
+7. **19:00~21:00** **PRM 설계 문서 작성** — `docs/analysis/prm_spec.md` 신설. RQ3 핵심 장치. *구현은 Day 4 오전*, 오늘은 설계만. 보행자 잔여 공간의 공간 분포(음의 지표) 수식·OSM 데이터 소스·출력 스키마·critique_flag 연계 포함.
+8. **21:00~22:00** Day 3 build-log 마감 + 프리뷰 갱신 (+ 창원 ARDI v0 결과 1~2 시각화 포함)
+
+**스코프 업데이트 요약 (Day 2 → Day 3)**
+- ✅ **해제**: ARDI 파이프라인 (Day 3 오후부터)
+- ✅ **허용**: PRM 설계 문서 (Day 3 저녁)
+- ❌ **계속 금지**: Opus 에이전트 호출 인프라 (Cowork가 D-G·Foucault 프롬프트 집필 중)
+- ❌ **계속 금지**: 브리프 본문 집필 (Day 4 일정)
+- ❌ **계속 금지**: 사천·경주 add-city 구현 (Day 4 리허설)
 
 ### 막힘 (미해결)
 
