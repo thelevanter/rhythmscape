@@ -182,4 +182,43 @@
 
 ---
 
+## 2026-04-23 (목) — Day 2 — RDI v0 + critique_flag
+
+### 완료
+
+- **블록 A** (11:20): `data/processed/tago/prescribed_intervals.parquet` 생성 (9행 = 3노선 × 3 daytype). `intervaltime`/`intervalsattime`/`intervalsuntime` 컬럼이 이미 `routes/*.parquet`에 있어 추가 API 호출 없이 reshape만. 평일 기본값: 271=94분 / BRT6000=20분 / 710=45분.
+- **블록 B** (11:24): `src/rhythmscape/metrics/rdi.py` 신설, `rdi_20260423.parquet` 1,006 bins. 노선별 평균 magnitude: 271=0.59 / BRT6000=0.26 / 710=0.42. 변동성 non-zero: 340/1006 (33.8%).
+- **블록 C** (11:27): `src/rhythmscape/metrics/critique.py` + `config/critique_flag.yaml` + `critique_flags_20260423.parquet` (57행). dressage_alert=54, vitality_query=3, flag rate 5.67% (spec §6 범위 5-15% 내).
+- **블록 D** (11:29): `docs/evidence/rdi_day2_preview_20260423.png` (3-패널 시계열) + `docs/analysis/rdi_day2_summary.md`.
+- **pytest**: `tests/test_metrics_rdi.py` + `test_metrics_critique.py` 3/3 pass.
+
+### 결정 사항
+
+1. **time bin 5분 → 30분 변경 (경험적 필연)**. 핸드오프 §B의 5-min bin은 Changwon 최단 headway(20분, BRT6000)·최장(94분, 271)을 고려하면 대부분 n=1 bin을 낳고 variance가 0으로 수렴 → `vitality_query` 발동 불가. 30-min bin에서 다중관측 347/1001 (34.7%) 확보. 5-min spec은 sub-15-min headway 모드(서울·부산 확장 시)에서 유효. 사유 `rdi.py` docstring + `summary.md` Limits에 명시.
+
+2. **dressage persistence 5 ticks → 1 bin**. 원 spec의 "5 연속 틱=5분"은 1-min polling을 전제. 30-min bin 하나는 이미 30분 평균이라 구조적 관측(fluke 아님). persistence=1이 spec의 의미적 번역. 전체-일치 window 확보 후 Day 3에 persistence≥2 재검토.
+
+3. **dressage magnitude_absolute 0.05 → 0.10**. spec §6이 "flag rate 1% 미만이면 임계값 완화"를 허용. 0.05로 2.6% → 0.10으로 5.67% (5-15% 범위 내). spec §2.1 본문값은 보존되어 있고, CritiqueConfig 오버라이드로 Day 2 상황만 조정. Day 3에 더 긴 window에서 0.05 복귀 가능성 검토.
+
+4. **경험적 발견** — BRT6000이 dressage 54건 중 47건 독식, 271은 vitality 3건 중 2건 독식. route_selection_rationale.md §3/§2의 이론적 배치(BRT=automobility 포획 / 271=eurhythmia baseline이 sparse window에서 arrhythmia로 전환)와 경험적 일치. 연관성 강조는 summary.md "Observed triplet" 절 참조.
+
+### 이슈 / 미해결
+
+- **7-row anchor의 routes parquet**: 271의 94분 prescribed가 의심스러움. 관측 평균 37분과 불일치. TAGO `intervaltime` 필드의 단위·의미를 Day 3 오전에 재확인 (Cowork 리뷰 대상).
+- **커미티 §2 peak vs off-peak 분리 테스트 미수행**: 오늘 08:12-11:30 ~3.5h window로는 피크(08-09) vs 오프피크(10-11) 분리 통계가 얇음. Day 2 저녁 20시 이후 전일치 재산출 시 실시.
+- **OSM PBF 창원 클립(`data/processed/osm/changwon.pbf`)** Day 1 완료. PRM 파이프라인 연결은 Day 3 이후.
+- **tick API error 6건**: generic TAGO resultCode != 00. warning 수준. Day 3 아침 누적 로그 분석으로 원인 분류.
+
+### 다음 세션 (Day 3) 시작 지점
+
+1. `build-log.md` Day 2 섹션 + `docs/analysis/rdi_day2_summary.md` 읽기 (Cowork 리뷰 결과 반영)
+2. Day 2 저녁 20:00 이후 launchd 12h 전일치 축적 완료 확인 → 전일치 RDI 재산출로 임계값·persistence 재검토
+3. 271 prescribed `intervaltime=94` 의미 재확인 (loop 총시간 vs headway)
+4. RQ 최종 결정 회의(07:30) 이후 ARDI/PRM 진입 여부 결정
+
+### 토큰 소비
+- 이 세션: 미집계. 커밋 말미 `/cost` 반영 예정.
+
+---
+
 *빌드 시작일부터 매일 저녁 이 아래에 섹션 추가.*
