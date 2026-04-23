@@ -76,22 +76,78 @@ vitality_query ⇔
 - 동일 데이터셋 → 동일 임계값. 랜덤 시드 불필요(순수 통계).
 - 데이터가 추가되면 임계값 재산출. 이전 값은 `config/critique_flag.{YYYYMMDD}.yaml`로 아카이브.
 
-**예시 구성**:
+**예시 구성** (Day 2 오후 16:40 KST 실측 기준, 도시별 분리 산출):
+
+공통 파라미터 (4도시 전부 동일):
+- `bin_width_minutes: 30` — 최단 headway(분당 10분, 영도 10분)가 5분을 초과하여 원안의 5분 bin은 variance 계산 불가. 30분 bin이 multi-obs cell을 확보하는 최소 단위 (Day 2 오전 `d9d0046` 도입 근거).
+- `persistence_bins: 1` — 30분 bin 자체가 구조적 평균이므로 "단발 우연 vs 구조적 동기화" 의도는 1 bin으로 충족. 원안 "5 tick = 5분" 표현은 1분 tick 전제였음.
+- `vitality_magnitude_decile / variance_decile: 0.9` / `dressage_decile: 0.1` — 원안 유지.
+- `dressage_magnitude_absolute: 0.10` — 원안 0.05는 flag rate 2.6%로 spec §6의 5–15% 목표 미달. 0.10으로 상향하여 모든 도시 flag rate가 목표 범위 수렴.
+
 ```yaml
-# config/critique_flag.yaml
-computed_at: "2026-04-23T18:00:00+09:00"
-source_window: ["2026-04-23T08:12+09:00", "2026-04-23T17:30+09:00"]
-routes: ["CWB379002710", "CWB379060000", "CWB379007100"]
-n_observations: 5940
+# config/critique_flag_changwon.yaml
+computed_at: "2026-04-23T16:40:17+09:00"
+source_window: ["2026-04-23T08:00:00+09:00", "2026-04-23T16:30:00+09:00"]
+routes: ["CWB379002710", "CWB379007100", "CWB379060000"]
+n_observations: 2871
+bin_minutes: 30
 thresholds:
   dressage:
-    magnitude_absolute: 0.05
-    magnitude_decile_10: 0.038   # computed
-    persistence_ticks: 5
+    magnitude_absolute: 0.10
+    magnitude_decile_cutoff: 0.1000    # lowest decile of magnitude
+    persistence_bins: 1
   vitality:
-    magnitude_decile_90: 0.412   # computed
-    variance_decile_90: 0.087    # computed
+    magnitude_decile_cutoff: 0.5341    # highest decile of magnitude
+    variance_decile_cutoff: 3.4917     # highest decile of variance
+# 관측 flag rate: 9.65% (dressage 262 + vitality 15 / 2871)
 ```
+
+```yaml
+# config/critique_flag_seongnam_bundang.yaml
+computed_at: "2026-04-23T16:40:17+09:00"
+source_window: ["2026-04-23T14:30:00+09:00", "2026-04-23T16:30:00+09:00"]
+routes: ["GGB204000024", "GGB204000146", "GGB228000179"]
+n_observations: 811
+bin_minutes: 30
+thresholds:
+  dressage:
+    magnitude_absolute: 0.10
+    magnitude_decile_cutoff: 0.1250
+    persistence_bins: 1
+  vitality:
+    magnitude_decile_cutoff: 1.6000    # 분당 특권 통근 회랑 — magnitude 분포가 3도시 중 최고
+    variance_decile_cutoff: 4.1015
+# 관측 flag rate: 9.25% (dressage 67 + vitality 8 / 811)
+```
+
+```yaml
+# config/critique_flag_busan_yeongdo.yaml
+computed_at: "2026-04-23T16:40:17+09:00"
+source_window: ["2026-04-23T14:30:00+09:00", "2026-04-23T16:30:00+09:00"]
+routes: ["BSB5200008000", "BSB5200113000", "BSB5290407000"]
+n_observations: 871
+bin_minutes: 30
+thresholds:
+  dressage:
+    magnitude_absolute: 0.10
+    magnitude_decile_cutoff: 0.0076    # 영도 magnitude 분포는 낮은 쪽에 강하게 쏠림 (0.131 median)
+    persistence_bins: 1
+  vitality:
+    magnitude_decile_cutoff: 0.5758
+    variance_decile_cutoff: 4.0417     # variance는 3도시 중 최고 (지형 제약 가설 지지)
+# 관측 flag rate: 11.37% (dressage 88 + vitality 11 / 871)
+```
+
+```yaml
+# config/critique_flag_sejong.yaml  (부재 — 설명용)
+# 세종은 TAGO가 prescribed (intervaltime) 필드를 미반환하여 RDI = 0 bins.
+# critique_flag 임계값 산출 불가. docs/analysis/sejong_prescription_opacity.md
+# 참조. Day 3 오전 bis.sejong.go.kr 스크래핑(sejongbis_scrape_plan.md)으로
+# prescribed 보강 후 재산출 예정. 그 때 `prescribed_source: "sejongbis_scrape"`
+# 태그로 다른 3도시와 분리 관리.
+```
+
+**교차 도시 비교 시 주의**: 각 yaml의 `magnitude_decile_cutoff` / `variance_decile_cutoff`는 **도시별 RDI 분포에서 독립 산출**된다. 도시 A의 "dressage 임계"가 도시 B에서 그대로 의미 있는 것이 아니다 — 동일 절대 magnitude 값이 한 도시에서는 lowest decile에 속하고 다른 도시에서는 중간일 수 있다. 도시 간 비교는 각 도시의 *flag 분포 비율*(예: dressage rate %)을 기준으로 하며, 원시 magnitude/variance 절대값의 직접 교차 해석은 도시별 mean/median을 함께 제시할 것.
 
 ---
 
