@@ -118,10 +118,22 @@ cities:
         theoretical_role: 조치원역↔산성동 — 구시가 잔여 지선, 창원 271과 방향 상반·위상 동일
 
   # ---------------------------------------------------------------------------
-  # Busan Yeongdo — awaiting Cowork candidates at 15:00 KST.
-  # TAGO exposes only 부산광역시 (citycode 21) at city level; Yeongdo-gu must
-  # be filtered by route_stations bbox or bridge-crossing structural signature
-  # during resolve.
+  # Busan Yeongdo — 반도-섬, 2-bridge bottleneck, pre-plan accretion (add-city §3).
+  # TAGO exposes only 부산광역시 (citycode 21) at city level; Yeongdo-gu routes
+  # are selected by requiring ≥30% of route_stations to fall inside the Yeongdo
+  # bbox (lat 35.055-35.110, lon 129.025-129.100). OSM polygon available at
+  # data/processed/osm/busan_yeongdo.pbf for future PRM refinement.
+  #
+  # Two Day-2 theoretical findings recorded here for the Day 3-4 bilingual brief:
+  #
+  # (1) regional_fix 축 4변주 완성: 창원 710(결핍) · 성남 9407(특권) ·
+  #     세종 1004(필수성) · 영도 113(지형적 왜곡). 4도시가 각각 독립적 이론
+  #     위치 점유 — 단일 축의 네 양상이 공시적 비교의 단단한 뼈대.
+  #
+  # (2) automobility_capture 정류소 스케일 차이: 창원 BRT6000(77) ·
+  #     세종 B2(15) · 영도 8(89). 정류소 수 자체가 공간 구조의 흔적이다 —
+  #     세종은 계획-통합 BRT의 압축 배치, 영도는 병목을 우회하는 긴 해안
+  #     루트, 창원은 1970s 격자 위에 덧씌워진 중간치.
   # ---------------------------------------------------------------------------
   busan_yeongdo:
     city_name: busan_yeongdo
@@ -129,4 +141,16 @@ cities:
     theme_label: 부산 영도 (반도 지형)
     api_base: https://apis.data.go.kr/1613000
     api_key_env: TAGO_API_KEY
-    routes: []
+    routes:
+      - routeid: BSB5200008000
+        route_no: "8"
+        route_type: 일반버스
+        theoretical_role: 태종대↔서부터미널 — 영도대교 관통 도심 연결, 병목이 있는 BRT (창원 BRT6000의 변형)
+      - routeid: BSB5200113000
+        route_no: "113"
+        route_type: 일반버스
+        theoretical_role: 영도중리↔신평(사하구) — 광역의 지형적 왜곡, regional_fix 4변주의 제3극
+      - routeid: BSB5290407000
+        route_no: 영도구7
+        route_type: 마을버스
+        theoretical_role: 청학동시장↔동삼그린힐 — 지형 잔여 극치, 봉래산이 허용하지 않은 규모
