@@ -265,4 +265,95 @@ d9d0046 feat(metrics): RDI v0 + critique_flag — Day 2 DoD complete
 
 ---
 
+## 2026-04-23 (목) — Day 2 저녁 — 마감 엔트리
+
+### Day 2 최종 커밋 체인 (누적 → 마감)
+
+```
+(this commit) feat(evening): closing tasks — Sejong recon + dressage temporal + build-log close
+b4031e6 feat(metrics): 4-city RDI generalization + Sejong prescription opacity + night collection plan + 271 representation/practice distinction
+af43509 feat(metrics+ingest): Day 2 afternoon 4-block — RDI multi-city + quota obs + 271 verif
+8560ce9 feat(cities): Busan Yeongdo manifest + plists — 4-city set complete
+35b32bb feat(cities): Sejong manifest + pre-staged launchd plists
+f18b55b feat(ingest): multi-city TAGO ingest — parameterize by city slug
+d9d0046 feat(metrics): RDI v0 + critique_flag — Day 2 DoD complete
+ee7b8b5 docs(analysis): route selection + sentinel rationale refinement
+c150963 refactor(ingest/tago): sentinels → strategic rhythmic observatories
+8bb0f58 feat(ingest/tago): TAGO batch live — DoD complete
+```
+
+### Day 2 종료 상태 (2026-04-23 17:05 KST 스냅샷)
+
+**수집 가동 현황**
+- launchd 8 job 등록 (4도시 × tick/anchor). 19:59 KST 자동 윈도우 종료 예정.
+- 내일 06:55 KST 4도시 anchor 자동 fire (1일 1회).
+- 내일 07:00 KST tick 재개. 야간 plist 업데이트는 07:30 RQ 회의 직후(Cowork 지시).
+
+**누적 tick (17:05 기준, 엔드포인트당)**
+- 창원: 약 520 ticks × 3 endpoints (full-day, 08:12~)
+- 성남 분당 / 세종 / 부산 영도: 약 140 ticks × 3 endpoints (14:42~)
+- 총 locations parquet 파일: 2,000+ (4도시 합계)
+
+**세 가설 1차 확증 (도시별 극값 점유)**
+1. **분당 magnitude 극값**: mean RDI magnitude **0.796** (3도시 중 최고). `route_selection_rationale.md` + `add_city_selection_rationale.md §1.2(b)`의 *"특권 통근 회랑 가설"* 경험적 지지. 타이트한 처방 × 서울 방면 정체의 이중 작용.
+2. **영도 variance 극값**: mean RDI variance **1.83** (3도시 중 최고). 다리 병목·봉래산·해안 노출의 *"지형 제약 variance 가설"*(H-YD) 지지. magnitude는 중간 수준이나 불규칙성으로 rhythm을 기록.
+3. **창원 dressage 오프피크 집중**: midday 12-14 band dressage rate **14.97%** (창원 3 band 중 최고, spec §6 5-15% 범위 상한). *automobility 포획의 기계성이 수요 낮은 시간대일수록 선명*하다는 파생 관찰. 창원만 3 band 커버리지 유효.
+
+**regional_fix 4변주 완성**
+- 창원 710 (광역 *결핍*)
+- 성남 9407 (광역 *특권*)
+- 세종 1004 (광역 *필수성*)
+- 영도 113 (광역 *왜곡*)
+
+4도시가 *regional_fix* 축 단일선에서 서로 독립적인 이론 위치를 점유. Day 3-4 이중 언어 브리프의 **논증 중심축**으로 확정.
+
+**세종 opacity 처리**
+- Option 3 (오늘 저녁): 3도시 RDI 공시적 비교 + 세종 "처방 은닉 도시" 별도 섹션. 완료 (`day2_4city_preview.md` §4, PNG panel 4).
+- Option 1 (Day 3 오전): `bis.sejong.go.kr` 스크래핑 사전 정찰 완료 (`sejongbis_scrape_plan.md`). Cowork spec의 `sejongbis.kr`은 DNS 부재 — 정식 도메인은 `bis.sejong.go.kr`. AJAX 엔드포인트 3종 매핑(`searchBusRoute.do`, `searchBusRouteDetail.do`, `searchBusTimeList.do`). Day 3 07:30+ 즉시 실행 가능.
+- Option 2 (observed-median proxy): 영구 금지 봉인.
+
+**파이프라인 empty-response handling 실증 검증**
+- `night_tick_diagnostic.py`: 최근 120 ticks/city 스캔 결과 arrivals=0 이미 **7건** 정상 처리됨 (창원 2, 성남 1, 영도 4). 빈 parquet 저장·checkpoint 갱신 정상. 야간 locations=0 케이스는 내일 야간 plist 활성화 후 첫 24h 내 자연 검증.
+
+### 오후~저녁 변경 파일
+
+- **신규**: `config/cities.yaml`, `config/critique_flag_{changwon,seongnam_bundang,busan_yeongdo}.yaml`, `config/launchd/com.rhythmscape.tago-batch.{seongnam_bundang,sejong,busan_yeongdo}.{tick,anchor}.plist` (6)
+- **신규**: `scripts/{preview_rdi_4city.py, night_tick_diagnostic.py, dressage_temporal_distribution.py}`
+- **신규**: `docs/analysis/{day2_morning_report.md, day2_4city_preview.md, day2_dressage_temporal_distribution.md, add_city_selection_rationale.md, night_collection_rationale.md, sejong_prescription_opacity.md, sejongbis_scrape_plan.md, 271_intervaltime_verification.md}`
+- **신규**: `docs/evidence/rdi_day2_4city_preview_20260423.png`
+- **신규**: `prompts/ko/lefebvre.md` (Cowork 프롬프트 v1.0 시드)
+- **수정**: `src/rhythmscape/ingest/tago/{client.py, scheduler.py, __init__.py, resolve_routes.py}`, `src/rhythmscape/metrics/rdi.py`, `scripts/gen_launchd_intervals.py`, `docs/analysis/sentinel_rationale.md`, `docs/analysis/route_selection_rationale.md`
+- **리네임**: `sejong_prescribed_gap.md` → `sejong_prescription_opacity.md` (gap → feature)
+
+### 내일 07:30 회의 재입장용 anchor
+
+Day 3 회의에서 Cowork가 즉시 인용 가능한 산출물:
+1. `docs/analysis/day2_4city_preview.md` — 메인 4도시 프리뷰
+2. `docs/evidence/rdi_day2_4city_preview_20260423.png` — 1장 시각화
+3. `docs/analysis/day2_dressage_temporal_distribution.md` — dressage 시간대 교차표 (부분 — 창원만 3 band 유효, post-19:59 재산출 권장)
+4. `docs/analysis/sejong_prescription_opacity.md` — 처방 은닉 도시 프레임
+5. `docs/analysis/sejongbis_scrape_plan.md` — Day 3 스크래핑 즉시 실행 가이드
+6. `docs/analysis/night_collection_rationale.md` — 야간 plist 업데이트 근거 + 실행 계획
+
+### 내일 첫 과업 순서 (Day 3, 07:00~)
+
+1. **07:00~07:30** 재입장: 위 6 산출물 + build-log 읽기
+2. **07:30~08:30** RQ 최종 결정 회의 (Cowork + 케이)
+3. **08:30~08:45** 야간 수집 plist 업데이트 (10분 stride 옵션 추가 → gen_launchd_intervals.py 확장 필요) + launchctl reload
+4. **08:45~09:30** 세종 스크래핑 모듈 실행 + 세종 RDI 재포함
+5. **09:30~** RQ 결정에 따른 다음 분석 (ARDI 또는 PRM 또는 다른 축)
+6. **저녁**: post-19:59 재산출 + 3도시 완전 17-19 band dressage 교차표 확보 → Day 3 최종 프리뷰
+
+### 막힘 (미해결)
+
+- **성남·영도 07-09 / 12-14 band 데이터 부재**: 14:42 load라 오늘 이 band 관측 0. Day 3 아침부터 자연 해소.
+- **세종 prescribed 부재**: Day 3 오전 스크래핑으로 해소 예정.
+- **영도 주말 intervaltime NaN**: 평일 분석에는 무관, 주말 분석 시 별도 작업.
+- **야간 stride 옵션**: `scripts/gen_launchd_intervals.py` `minute_entries()` 함수가 현재 분당 1회 고정. 10분 stride 파라미터 추가가 Day 3 morning task.
+
+### 토큰 소비
+- 미집계. Day 3 아침 `/cost` 스냅샷 시 반영.
+
+---
+
 *빌드 시작일부터 매일 저녁 이 아래에 섹션 추가.*
