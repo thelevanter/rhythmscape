@@ -98,11 +98,56 @@ def verify_manifest(
     return verified, missing
 
 
+def _load_manifest_from_cities(cities_path: Path, city_slug: str) -> tuple[int, list[dict], str]:
+    """Extract (city_code, routes, city_name) for one city from the multi-city manifest."""
+    with cities_path.open("r", encoding="utf-8") as fh:
+        cfg = yaml.safe_load(fh)
+    if city_slug not in (cfg.get("cities") or {}):
+        available = sorted(list((cfg.get("cities") or {}).keys()))
+        raise KeyError(f"city {city_slug!r} not in {cities_path} (available: {available})")
+    city = cfg["cities"][city_slug]
+    return int(city["city_code"]), (city.get("routes") or []), str(city.get("city_name") or city_slug)
+
+
+def _load_manifest_from_legacy(path: Path) -> tuple[int, list[dict], str]:
+    """Extract (city_code, routes, city_name) from the legacy single-city yaml."""
+    with path.open("r", encoding="utf-8") as fh:
+        cfg = yaml.safe_load(fh)
+    return (
+        int(cfg["tago"]["city"]["code"]),
+        cfg["tago"]["routes"],
+        str(cfg["tago"]["city"]["name"]),
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Verify TAGO route manifest in config/tago.yaml against live API"
+        description="Verify TAGO route manifest against live API (single or multi-city)"
     )
-    parser.add_argument("--config", type=Path, default=Path("config/tago.yaml"))
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help="Legacy single-city yaml path (e.g. config/tago.yaml)",
+    )
+    parser.add_argument(
+        "--cities",
+        type=Path,
+        default=Path("config/cities.yaml"),
+        help="Multi-city manifest path (default config/cities.yaml)",
+    )
+    parser.add_argument(
+        "--city",
+        type=str,
+        default=None,
+        help="City slug to verify inside --cities",
+    )
+    parser.add_argument(
+        "--dump",
+        action="store_true",
+        help="When set and the manifest for --city is empty, dump all routes for the city "
+        "(Cowork pre-flight for picking route candidates).",
+    )
     args = parser.parse_args()
 
     load_dotenv()
@@ -111,13 +156,31 @@ def main() -> int:
         print("ERROR: TAGO_API_KEY not set in environment/.env", file=sys.stderr)
         return 99
 
-    with args.config.open("r", encoding="utf-8") as fh:
-        cfg = yaml.safe_load(fh)
-    city_code = int(cfg["tago"]["city"]["code"])
-    manifest: list[dict] = cfg["tago"]["routes"]
+    if args.config is not None:
+        city_code, manifest, city_name = _load_manifest_from_legacy(args.config)
+    elif args.city is not None:
+        city_code, manifest, city_name = _load_manifest_from_cities(args.cities, args.city)
+    else:
+        print("ERROR: provide either --config <yaml> or --city <slug>", file=sys.stderr)
+        return 99
 
     if not manifest:
-        print("ERROR: tago.routes is empty — nothing to verify", file=sys.stderr)
+        if args.dump:
+            with TagoClient(api_key=api_key) as client:
+                all_routes = dump_all_routes(client, city_code)
+            print(f"[dump] city={city_name} ({city_code}) — {len(all_routes)} routes:")
+            for r in all_routes:
+                print(
+                    f"  routeno={str(r.get('routeno')):<12} routeid={r.get('routeid'):<15} "
+                    f"type={str(r.get('routetp')):<10} "
+                    f"{r.get('startnodenm')} ↔ {r.get('endnodenm')}"
+                )
+            return 0
+        print(
+            f"ERROR: manifest for {city_name!r} is empty — nothing to verify. "
+            f"Pass --dump to list candidate routes for this city.",
+            file=sys.stderr,
+        )
         return 99
 
     with TagoClient(api_key=api_key) as client:
@@ -145,8 +208,8 @@ def main() -> int:
                 file=sys.stderr,
             )
         print(
-            "\n[verify] Fix config/tago.yaml — a configured routeid was not found "
-            "in the live TAGO dump for this city_code.",
+            f"\n[verify] Fix the manifest — a configured routeid was not found "
+            f"in the live TAGO dump for city {city_name} (code {city_code}).",
             file=sys.stderr,
         )
         return 99

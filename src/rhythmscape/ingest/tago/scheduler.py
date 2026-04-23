@@ -67,23 +67,36 @@ class Config:
     logs_dir: Path
 
 
-def load_config(path: Path) -> Config:
-    """Load ``tago.yaml`` + ``.env`` into a typed ``Config``."""
+def _env_api_key(api_key_env: str) -> str:
     load_dotenv()
+    api_key = os.environ.get(api_key_env, "")
+    if not api_key:
+        raise RuntimeError(f"Environment variable {api_key_env!r} is unset or empty")
+    return api_key
+
+
+def _extract_route_ids(routes: list[dict]) -> list[str]:
+    out: list[str] = []
+    for entry in routes:
+        rid = entry.get("routeid") or entry.get("route_id")
+        if rid:
+            out.append(str(rid))
+    return out
+
+
+def load_config(path: Path) -> Config:
+    """Load a **legacy single-city** yaml (e.g. ``config/tago.yaml``) into a Config.
+
+    This is the original, pre-multi-city loader. The Changwon launchd job that
+    was registered on Day 1 references ``--config config/tago.yaml`` and MUST
+    continue to work through this code path until the job is reloaded.
+    """
     with path.open("r", encoding="utf-8") as fh:
         cfg = yaml.safe_load(fh)
     tago = cfg["tago"]
 
     api_key_env = tago.get("api_key_env", "TAGO_API_KEY")
-    api_key = os.environ.get(api_key_env, "")
-    if not api_key:
-        raise RuntimeError(f"Environment variable {api_key_env!r} is unset or empty")
-
-    route_ids: list[str] = []
-    for entry in tago["routes"]:
-        rid = entry.get("routeid") or entry.get("route_id")
-        if rid:
-            route_ids.append(str(rid))
+    api_key = _env_api_key(api_key_env)
 
     tz = ZoneInfo(tago["collection"]["timezone"])
     ws = datetime.strptime(tago["collection"]["window_start"], "%H:%M").time()
@@ -93,7 +106,7 @@ def load_config(path: Path) -> Config:
         api_key=api_key,
         city_code=int(tago["city"]["code"]),
         city_name=tago["city"]["name"],
-        route_ids=route_ids,
+        route_ids=_extract_route_ids(tago["routes"]),
         window_start=ws,
         window_end=we,
         tz=tz,
@@ -103,6 +116,47 @@ def load_config(path: Path) -> Config:
         processed_base=Path(tago["storage"]["processed_base"]),
         checkpoint_dir=Path(tago["storage"]["checkpoint_dir"]),
         logs_dir=Path(tago["storage"]["logs_dir"]),
+    )
+
+
+def load_city_config(cities_path: Path, city_slug: str) -> Config:
+    """Load one city from the **multi-city manifest** (``config/cities.yaml``).
+
+    Global blocks (``collection``, ``storage``, ``limits``) live at the top
+    level; each ``cities.<slug>`` block holds city-specific overrides
+    (``city_code``, ``routes``, optionally ``api_key_env``).
+    """
+    with cities_path.open("r", encoding="utf-8") as fh:
+        cfg = yaml.safe_load(fh)
+
+    if city_slug not in (cfg.get("cities") or {}):
+        available = sorted(list((cfg.get("cities") or {}).keys()))
+        raise KeyError(f"city {city_slug!r} not in {cities_path} (available: {available})")
+    city = cfg["cities"][city_slug]
+
+    api_key_env = city.get("api_key_env", "TAGO_API_KEY")
+    api_key = _env_api_key(api_key_env)
+
+    collection = cfg["collection"]
+    storage = cfg["storage"]
+    tz = ZoneInfo(collection["timezone"])
+    ws = datetime.strptime(collection["window_start"], "%H:%M").time()
+    we = datetime.strptime(collection["window_end"], "%H:%M").time()
+
+    return Config(
+        api_key=api_key,
+        city_code=int(city["city_code"]),
+        city_name=str(city["city_name"]),
+        route_ids=_extract_route_ids(city.get("routes") or []),
+        window_start=ws,
+        window_end=we,
+        tz=tz,
+        poll_interval_sec=int(collection["poll_interval_sec"]),
+        http_timeout_sec=float(collection["http_timeout_sec"]),
+        raw_base=Path(storage["raw_base"]),
+        processed_base=Path(storage["processed_base"]),
+        checkpoint_dir=Path(storage["checkpoint_dir"]),
+        logs_dir=Path(storage["logs_dir"]),
     )
 
 
@@ -133,14 +187,22 @@ class _RedactServiceKey(logging.Filter):
         return True
 
 
-def configure_logging(logs_dir: Path, level: str = "INFO") -> None:
+def configure_logging(
+    logs_dir: Path,
+    level: str = "INFO",
+    city_name: str | None = None,
+) -> None:
     """Set up structlog → JSON lines on stdout + daily file under ``logs_dir``.
 
     Also installs a global ``serviceKey=`` redaction filter so httpx's request
     log cannot leak the TAGO API key (CLAUDE.md §7 guardrail).
+
+    When ``city_name`` is provided, the log filename is prefixed so parallel
+    cities write to distinct files.
     """
     logs_dir.mkdir(parents=True, exist_ok=True)
-    log_path = logs_dir / f"tago_{date.today().strftime('%Y%m%d')}.log"
+    stem = "tago" if not city_name else f"tago_{city_name}"
+    log_path = logs_dir / f"{stem}_{date.today().strftime('%Y%m%d')}.log"
 
     handler_file = logging.FileHandler(log_path, encoding="utf-8")
     handler_stream = logging.StreamHandler(sys.stdout)
@@ -197,7 +259,23 @@ def _write_checkpoint(path: Path, state: dict[str, Any]) -> None:
 
 
 def _checkpoint_path(cfg: Config) -> Path:
-    return cfg.checkpoint_dir / "state.json"
+    """Per-city checkpoint file, so parallel cities never clash.
+
+    Migration note (Day 2, 2026-04-23): prior to multi-city, Changwon wrote
+    to ``state.json``. The first tick after this change writes to
+    ``changwon_state.json``; a one-shot copy of the legacy file happens
+    below so that ``last_anchor_run`` / ``consecutive_failures`` continuity
+    is preserved.
+    """
+    new_path = cfg.checkpoint_dir / f"{cfg.city_name}_state.json"
+    legacy = cfg.checkpoint_dir / "state.json"
+    if not new_path.exists() and legacy.exists():
+        try:
+            new_path.parent.mkdir(parents=True, exist_ok=True)
+            new_path.write_bytes(legacy.read_bytes())
+        except OSError:
+            pass
+    return new_path
 
 
 def run_daily_anchor(cfg: Config) -> int:
@@ -429,11 +507,35 @@ def _latest_artifact(directory: Path, city_name: str, today: date) -> Path | Non
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Rhythmscape TAGO batch scheduler")
     parser.add_argument("--mode", choices=["anchor", "tick"], required=True)
-    parser.add_argument("--config", type=Path, default=Path("config/tago.yaml"))
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help="Legacy: single-city yaml path (e.g. config/tago.yaml). "
+        "Takes precedence over --city when both are given.",
+    )
+    parser.add_argument(
+        "--cities",
+        type=Path,
+        default=Path("config/cities.yaml"),
+        help="Multi-city manifest path (default config/cities.yaml).",
+    )
+    parser.add_argument(
+        "--city",
+        type=str,
+        default=None,
+        help="City slug inside --cities. Use with --cities; ignore --config.",
+    )
     args = parser.parse_args(argv)
 
-    cfg = load_config(args.config)
-    configure_logging(cfg.logs_dir)
+    if args.config is not None:
+        cfg = load_config(args.config)
+    elif args.city is not None:
+        cfg = load_city_config(args.cities, args.city)
+    else:
+        parser.error("either --config <yaml> or --city <slug> must be provided")
+
+    configure_logging(cfg.logs_dir, city_name=cfg.city_name)
 
     try:
         if args.mode == "anchor":

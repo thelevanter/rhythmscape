@@ -1,0 +1,114 @@
+# Rhythmscape city manifest — synchronic 4-city comparison
+#
+# Each city block mirrors the structure previously held in `config/tago.yaml`
+# (legacy, Changwon-only). Scheduler / resolve_routes / launchd generator
+# accept `--city <slug>` and read the matching block here.
+#
+# Changwon's entry duplicates config/tago.yaml so that the currently running
+# launchd jobs (which reference `--config config/tago.yaml`) are unaffected.
+# Later cleanup can migrate Changwon jobs to `--city changwon` and retire
+# `config/tago.yaml`. Do NOT edit config/tago.yaml without coordinating a
+# launchd reload — Changwon collection is live.
+
+collection:
+  window_start: "07:00"
+  window_end: "19:00"
+  timezone: Asia/Seoul
+  poll_interval_sec: 60
+  http_timeout_sec: 10
+  retry_attempts: 3
+
+limits:
+  daily_call_budget_per_city: 2160
+  hard_quota_code: "22"
+  unregistered_key_code: "30"
+
+storage:
+  raw_base: data/raw/tago
+  processed_base: data/processed/tago
+  checkpoint_dir: data/checkpoints/tago
+  logs_dir: logs/tago
+  parquet_compression: snappy
+
+observability:
+  log_level: INFO
+  log_format: json
+  log_rotation_daily: true
+
+reproducibility:
+  random_seed: 42
+  record_params_path: data/processed/tago/provenance/{city}_{date}.json
+
+cities:
+  # ---------------------------------------------------------------------------
+  # Changwon — flagship. Live since 2026-04-22 22:00 KST under config/tago.yaml.
+  # Do not edit while launchd job com.rhythmscape.tago-batch.tick is loaded.
+  # ---------------------------------------------------------------------------
+  changwon:
+    city_name: changwon
+    city_code: 38010
+    theme_label: 창원 (플래그십)
+    api_base: https://apis.data.go.kr/1613000
+    api_key_env: TAGO_API_KEY
+    routes:
+      - routeid: CWB379002710
+        route_no: "271"
+        route_type: 지선/순환
+        theoretical_role: 마산합포 박물관 루프 — 도심 내부 리듬
+      - routeid: CWB379060000
+        route_no: BRT6000
+        route_type: 좌석/BRT급행
+        theoretical_role: 성주사역↔덕동 — automobility 포획 사례
+      - routeid: CWB379007100
+        route_no: "710"
+        route_type: 좌석
+        theoretical_role: 불모산↔마산대 — 광역 부재의 증상적 대체
+
+  # ---------------------------------------------------------------------------
+  # Seongnam Bundang — 수도권 민간 자본 신도시 (add-city §1, 2026-04-23).
+  # Replaces original Seoul Gangnam slot after TAGO Seoul absence confirmed.
+  # ---------------------------------------------------------------------------
+  seongnam_bundang:
+    city_name: seongnam_bundang
+    city_code: 31020
+    theme_label: 성남 분당 (신도시+판교)
+    api_base: https://apis.data.go.kr/1613000
+    api_key_env: TAGO_API_KEY
+    routes:
+      - routeid: GGB228000179
+        route_no: "101"
+        route_type: 일반버스
+        theoretical_role: 분당 central spine 간선 (오리↔수서) — automobility 포획
+      - routeid: GGB204000024
+        route_no: "9407"
+        route_type: 직행좌석버스
+        theoretical_role: 분당→강남 직행좌석 — 특권 통근 회랑, 창원 710의 과잉형 대응
+      - routeid: GGB204000146
+        route_no: 누리2
+        route_type: 일반버스
+        theoretical_role: 분당 내부 고밀도 생활 리듬 — 창원 271의 혼잡형 대응
+
+  # ---------------------------------------------------------------------------
+  # Sejong — awaiting Cowork candidates at 14:00 KST.
+  # ---------------------------------------------------------------------------
+  sejong:
+    city_name: sejong
+    city_code: 12
+    theme_label: 세종 (행정중심 신도시)
+    api_base: https://apis.data.go.kr/1613000
+    api_key_env: TAGO_API_KEY
+    routes: []
+
+  # ---------------------------------------------------------------------------
+  # Busan Yeongdo — awaiting Cowork candidates at 15:00 KST.
+  # TAGO exposes only 부산광역시 (citycode 21) at city level; Yeongdo-gu must
+  # be filtered by route_stations bbox or bridge-crossing structural signature
+  # during resolve.
+  # ---------------------------------------------------------------------------
+  busan_yeongdo:
+    city_name: busan_yeongdo
+    city_code: 21
+    theme_label: 부산 영도 (반도 지형)
+    api_base: https://apis.data.go.kr/1613000
+    api_key_env: TAGO_API_KEY
+    routes: []
