@@ -103,19 +103,27 @@ cities:
     theme_label: 세종 (행정중심 신도시)
     api_base: https://apis.data.go.kr/1613000
     api_key_env: TAGO_API_KEY
+    # Day 3 오전 variant 교체 (2026-04-24):
+    # - B2: SJB293000362 (minor early-morning, 7 dispatches 0500-0600)
+    #        → SJB293000077 (main full-day, 145 dispatches 0600-2423, 대전월드컵↔오송)
+    # - 551: SJB293000030 (1-hour minor, 0600-0700)
+    #        → SJB293000029 (routeno 550, 12 dispatches 0730-2200, 산성동↔조치원역)
+    # - 1004: unchanged (SJB293000178 was already main service, 62 dispatches)
+    # 교체 근거: Day 2 pick 시 bbox coverage만 보고 선정하여 실제 운영 scope
+    # 고려 못함. tick window (07:00-19:59) overlap 복구가 교체 목표.
     routes:
-      - routeid: SJB293000362
+      - routeid: SJB293000077
         route_no: B2
         route_type: 광역버스
-        theoretical_role: 세종 BRT 간선 (반석네거리↔오송역) — 계획 단계 통합 BRT, 창원 BRT6000의 "덧붙여짐"과 대조
+        theoretical_role: 세종 BRT 메인 (대전월드컵↔오송역, 145 dispatches/day) — 계획 단계 통합 BRT, 창원 BRT6000의 "덧붙여짐"과 대조
       - routeid: SJB293000178
         route_no: "1004"
         route_type: 광역버스
         theoretical_role: 반석역(대전유성)↔장기중학교(세종4생활권) — 광역 기능 연계 필수성, 창원 710의 반대 극
-      - routeid: SJB293000030
-        route_no: "551"
+      - routeid: SJB293000029
+        route_no: "550"
         route_type: 일반버스
-        theoretical_role: 조치원역↔산성동 — 구시가 잔여 지선, 창원 271과 방향 상반·위상 동일
+        theoretical_role: 산성동↔조치원역 (550, 12 dispatches/day) — 구시가 잔여 지선, 창원 271과 방향 상반·위상 동일
 
   # ---------------------------------------------------------------------------
   # Busan Yeongdo — 반도-섬, 2-bridge bottleneck, pre-plan accretion (add-city §3).

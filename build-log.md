@@ -372,4 +372,60 @@ Day 3 회의에서 Cowork가 즉시 인용 가능한 산출물:
 
 ---
 
+## 2026-04-24 (금) — Day 3 오전 — 야간 수집 활성화 + 세종 처방 확보 + variant 교체
+
+### 오늘 오전 한 일 (07:00~현재)
+
+**Task 1-2**: RQ 회의 06:30 선행 완료 (Cowork + 케이). 결정 = RQ 이월 + RQ1~4 병렬 유지 + Day 3 오후 ARDI 허용. 상세 `20_Projects/decisions/20260424_morning_rq_decision.md` (옵시디언).
+
+**Task 3 (A~H)** — 커밋 `4c23b49`:
+- **A-B**: `gen_launchd_intervals.py`에 stride + overnight-aware `minute_entries` 추가, 도시별 `--anchor-time` 주입
+- **C-D**: 4도시 plists 재생성 (day 07:00-19:59 stride 1 + night 20:00-06:59 stride 10 병합, 총 846 entries). Anchor 시차 06:55/06:57/06:59/07:01 (창원→영도, 영도 최후 — 부산 전체 8,385 정류소 paging 부담 고려)
+- **E**: launchctl 8 jobs reload, Changwon 레거시 label → city-suffix 통일
+- **F**: `bis.sejong.go.kr` 스크래핑 (`scrape_sejongbis_schedule.py`) — domain 정정(`sejongbis.kr` NXDOMAIN → `bis.sejong.go.kr`), busRouteId = TAGO `SJB` prefix 제거한 숫자, JSON 구조화 응답 (`searchBusTimeList.do`의 `busTimeList`, daytype flags 4종)
+- **G**: Sejong RDI 재산출 (Day 3 56 bins, Day 2 retrospective 278 bins), critique_flag rate 11.51-12.50% (spec §6 내)
+- **H**: dressage_temporal_distribution.py 4-city 확장, 세종 17-19 band **20 dressage / 13.89%** 발견
+
+**Task 3 후속 (variant 교체)** — 커밋 진행 중:
+- B2: `SJB293000362` (0500-0600 minor, 7 dispatches) → **`SJB293000077`** (메인 BRT, 0600-2423, 145 dispatches, 7.66분 headway)
+- 550: `SJB293000030` (551, 0600-0700 minor) → **`SJB293000029`** (전일 0730-2200, 12 dispatches, 79.09분 headway)
+- 1004 (`SJB293000178`) 유지
+- 새 variants의 유효 데이터 축적 08:37 KST~
+
+### Sejong opacity의 feature 전환 기록 (이론적 수확)
+
+**세종 opacity의 feature 전환 — 측정 불가가 본질이 아니라 공적 가시성의 은닉이 본질. 스크래핑으로 처방 확보 후 세종도 계획 내재 dressage 패턴(17-19 band 13.89%, 창원 midday 14.97%와 거의 동일)을 보이며, 본 프로젝트의 H-SJ 가설은 "처방 은닉 + 계획 내재 dressage의 이중 구조"로 격상됨.**
+
+구체적 이론적 함의:
+1. Lefebvre prescribed-lived 이항을 "visibility of prescription" 차원으로 확장 (Day 2 오후 Cowork §2.1)
+2. Day 3 오전: 처방 확보 후 세종은 *본질적으로 측정 불가한 도시*가 아니라 *공적 가시성을 선별적으로 관리하는 도시*였음이 드러남 — 데이터는 운영 층(locations) 정상 + 처방 층(intervaltime) 미노출의 **비대칭 개방 정책**
+3. H-SJ 가설 격상: "2010s 행정중심도시의 BRT가 1970s 창원 BRT보다 깊이 dressage 내재화" → "**은닉 + 내재**의 이중 구조 — 공적으로는 가시성 최소화하나, 체계 내부로는 계획 정시성의 가장 선명한 경험적 대상"
+
+Day 4 이중 언어 브리프의 **regional_fix 4변주**(결핍·특권·필수성·왜곡)에 이어, **Sejong dressage 이중 구조**가 두 번째 논증 중심축.
+
+### 변경 파일 (오전)
+- **신규**: `scripts/scrape_sejongbis_schedule.py`
+- **신규**: `config/critique_flag_sejong.yaml`
+- **신규/수정**: `config/launchd/com.rhythmscape.tago-batch.{4개 도시}.{tick,anchor}.plist`
+- **신규**: `data/raw/tago/{routes,route_stations}/sejong_20260424_v2.parquet` (variant swap fresh fetch)
+- **수정**: `config/cities.yaml` (Sejong routes 3개 교체)
+- **수정**: `src/rhythmscape/metrics/rdi.py` (`--use-existing-prescribed` 플래그)
+- **수정**: `scripts/{gen_launchd_intervals.py, dressage_temporal_distribution.py}`
+- **수정**: `docs/analysis/{sejong_prescription_opacity.md §7 추가, day2_dressage_temporal_distribution.md 4-city 업데이트}`
+
+### 막힘 / 미해결 (Day 3 오후 이후)
+- **Day 2 retrospective Sejong의 새 variants 데이터 부재** — B2 000077, 550 000029가 Day 2에 collect되지 않아 Day 2 Sejong RDI는 여전히 1004 단독 기반 (278 bins). 유효한 full-variant Sejong RDI는 Day 3 저녁(2h+ 축적) 또는 Day 4 분석 대상.
+- **Sejong Sunday 운영**: 1004가 Sunday non-service, B2 Sunday 0. 주말 분석은 별도 Day 4 이후.
+- **launchd 영도 anchor**: 오늘 06:57 anchor exit 99로 실패 → 수동 복구(07:40, stations carry-forward). 내일 06:55 앵커 시차 효과 관찰.
+
+### 다음 (Day 3 오후~)
+- **창원 ARDI v0** — `src/rhythmscape/metrics/ardi.py` 신설 (1도시 먼저, RQ1+RQ3 공동 선행)
+- **PRM 설계 문서** — `docs/analysis/prm_spec.md` (구현은 Day 4 오전)
+- **Day 3 저녁 Sejong 재분석** — B2 메인 + 550 새 variant 수 시간 축적 후
+
+### 토큰 소비
+- 미집계. 저녁 `/cost` 스냅샷 시.
+
+---
+
 *빌드 시작일부터 매일 저녁 이 아래에 섹션 추가.*

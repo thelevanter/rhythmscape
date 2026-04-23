@@ -1,19 +1,20 @@
-computed_at: '2026-04-24T07:54:29+09:00'
+computed_at: '2026-04-24T08:38:28+09:00'
 source_window:
 - '2026-04-24T07:00:00+09:00'
-- '2026-04-24T07:30:00+09:00'
+- '2026-04-24T08:30:00+09:00'
 routes:
+- SJB293000077
 - SJB293000178
-n_observations: 56
+n_observations: 111
 bin_minutes: 30
 thresholds:
   dressage:
     magnitude_absolute: 0.1
-    magnitude_decile_cutoff: 0.046387759054813016
+    magnitude_decile_cutoff: 0.045903544450900585
     persistence_bins: 1
   vitality:
-    magnitude_decile_cutoff: 0.5112337788107688
-    variance_decile_cutoff: 5.991666666666666
+    magnitude_decile_cutoff: 0.5117179934146813
+    variance_decile_cutoff: 7.0
 config:
   dressage_magnitude_absolute: 0.1
   dressage_decile: 0.1

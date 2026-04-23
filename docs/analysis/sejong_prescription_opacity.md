@@ -123,3 +123,38 @@ discordance를 보인다면, 세종은 prescribed의 존재 여부 자체를 물
   (`tago_rate_headers` 이벤트에서 response 헤더 확인 가능)
 - 현재까지 세종 locations 수집: 16:35 기준 415+ rows, 10 vehicles, 38
   stations — **운영 층 데이터는 건강**. 처방 층만 부재.
+
+---
+
+## 7. Day 3 오전 — Option 1 실행 + variant 교체 (2026-04-24)
+
+### 7.1 bis.sejong.go.kr 스크래핑 실행 결과
+
+`scripts/scrape_sejongbis_schedule.py`를 통해 `POST /web/traffic/searchBusTimeList.do` 호출로 3노선 구조화된 배차 시간표 확보. 결과 `data/processed/tago/prescribed_intervals_sejong.parquet`에 `prescribed_source="sejongbis_scrape"` 태그로 기입.
+
+### 7.2 B2 / 551 variant 교체 (Cowork 승인)
+
+Day 2 오후 bbox coverage 기반 선정이 **실제 운영 scope를 고려하지 못한 점**을 발견. 결과:
+
+| 역할 | Day 2 pick | 문제 | Day 3 교체 |
+|---|---|---|---|
+| automobility_capture (B2) | `SJB293000362` | 0500-0600 1h만 운영 (7 dispatches/day, minor morning variant) | **`SJB293000077`** (메인 B2, 0600-2423 전일, 145 dispatches/day, 7.66분 headway) |
+| residue (551/550) | `SJB293000030` | 0600-0700 1h만 운영 (2 dispatches/day), tick 창(07:00-19:59) overlap 0% | **`SJB293000029`** (routeno 550, 산성동↔조치원역, 0730-2200, 12 dispatches/day, 79.09분 headway) |
+| regional_fix (1004) | `SJB293000178` | (변경 없음) | `SJB293000178` 유지 |
+
+**교체 근거**: Day 2 선정 시 Day 2 오후 2h window 관측소 coverage 최적화만 수행하여 "해당 variant가 실제 tick 창에 운영되는가"를 검증하지 않음. Day 3 오전 BIS 스크래핑 과정에서 `alloc_time` 필드로 드러남 — tick 창 밖 variant 선택이 Sejong RDI bin의 2/3를 0으로 만듦. 교체 후 모든 세 노선이 tick 창 내 유효 데이터 생산.
+
+### 7.3 Day 2 retrospective 한계
+
+B2 000077과 550 000029는 **Day 2에 해당 routeid로 collect되지 않았음** (Day 2 tick은 old routeids로 getRouteAcctoBusLcList 호출). 따라서 Day 2 retrospective Sejong RDI는 여전히 1004 (000178) 단일 노선 기반 — 278 bins, flag rate 11.51%. 교체 후 의미 있는 변화 없음.
+
+B2 메인·550 새 variant의 유효 관측은 **Day 3 08:37 KST 이후** 축적 시작. Day 3 저녁부터 세 노선 모두가 참여하는 Sejong RDI 분석 가능.
+
+### 7.4 포지션 재해석
+
+세종은 더 이상 "측정 불가 도시"가 아님:
+
+- **Day 2 오전**: TAGO 처방 NaN 발견 → "처방 은닉 도시" feature 프레임
+- **Day 2 오후**: 3도시 비교에서 제외 (Option 3)
+- **Day 3 오전**: Option 1 실행 → 처방 확보 + variant 교체 → **"처방 은닉 + 계획 내재 dressage의 이중 구조"**로 가설 격상
+- Sejong 17-19 band Day 2 dressage rate **13.89%**가 창원 midday **14.97%**와 거의 동일 → 2010s 신도시 BRT가 1970s 창원 BRT 이상으로 dressage 깊이 내재화 가설 (H-SJ 원안)의 1차 간접 증거. B2 메인 variant data가 Day 3 저녁 이후 축적되면 직접 검증 가능.
