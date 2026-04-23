@@ -1,0 +1,25 @@
+computed_at: '2026-04-23T16:40:17+09:00'
+source_window:
+- '2026-04-23T08:00:00+09:00'
+- '2026-04-23T16:30:00+09:00'
+routes:
+- CWB379002710
+- CWB379007100
+- CWB379060000
+n_observations: 2871
+bin_minutes: 30
+thresholds:
+  dressage:
+    magnitude_absolute: 0.1
+    magnitude_decile_cutoff: 0.1
+    persistence_bins: 1
+  vitality:
+    magnitude_decile_cutoff: 0.5340740740740741
+    variance_decile_cutoff: 3.4916666666666663
+config:
+  dressage_magnitude_absolute: 0.1
+  dressage_decile: 0.1
+  dressage_persistence_bins: 1
+  vitality_magnitude_decile: 0.9
+  vitality_variance_decile: 0.9
+  bin_minutes: 30
