@@ -389,23 +389,38 @@ def run_for_city(
     processed_base: Path = Path("data/processed/tago"),
     bin_minutes: int = 30,
     tz: str = "Asia/Seoul",
+    use_existing_prescribed: bool = False,
 ) -> dict:
     """Build prescribed + RDI parquets for a single city.
 
     Writes:
-        {processed_base}/prescribed_intervals_{city}.parquet
+        {processed_base}/prescribed_intervals_{city}.parquet  (unless
+            ``use_existing_prescribed`` is True and the file already exists)
         {processed_base}/rdi_{city}_{YYYYMMDD}.parquet
 
-    Returns a summary dict with file paths and row counts — used by the
-    CLI and by the Day-2 preview orchestrator that runs all four cities.
+    ``use_existing_prescribed=True`` is how externally-sourced prescribed
+    data (e.g. Sejong via bis.sejong.go.kr scrape) survives a re-run. The
+    existing parquet is loaded as-is, with whatever ``prescribed_source``
+    tagging the scraper wrote.
     """
     stamp = for_date.strftime("%Y%m%d")
-    routes_df = load_routes_parquet(raw_base / "routes", city, for_date)
-    prescribed_df = build_prescribed_intervals(routes_df)
-    prescribed_path = save_prescribed_intervals(
-        prescribed_df,
-        processed_base / f"prescribed_intervals_{city}.parquet",
-    )
+    prescribed_path = processed_base / f"prescribed_intervals_{city}.parquet"
+    if use_existing_prescribed and prescribed_path.exists():
+        prescribed_df = pd.read_parquet(prescribed_path)
+        log.info(
+            "prescribed_intervals_reused",
+            path=str(prescribed_path),
+            rows=int(len(prescribed_df)),
+            sources=sorted(
+                prescribed_df["prescribed_source"].dropna().unique().tolist()
+                if "prescribed_source" in prescribed_df.columns
+                else ["unlabeled"]
+            ),
+        )
+    else:
+        routes_df = load_routes_parquet(raw_base / "routes", city, for_date)
+        prescribed_df = build_prescribed_intervals(routes_df)
+        save_prescribed_intervals(prescribed_df, prescribed_path)
 
     locations_df = load_locations(raw_base / "locations", for_date=for_date, city=city)
     rdi_df = compute_rdi(
@@ -478,6 +493,12 @@ def main(argv: list[str] | None = None) -> int:
         type=int,
         default=30,
     )
+    parser.add_argument(
+        "--use-existing-prescribed",
+        action="store_true",
+        help="Skip rebuilding prescribed_intervals_{city}.parquet from TAGO "
+        "routes. Required for Sejong after bis.sejong.go.kr scrape.",
+    )
     args = parser.parse_args(argv)
 
     if not args.all and args.city is None:
@@ -502,6 +523,7 @@ def main(argv: list[str] | None = None) -> int:
                 raw_base=args.raw_base,
                 processed_base=args.processed_base,
                 bin_minutes=args.bin_minutes,
+                use_existing_prescribed=args.use_existing_prescribed,
             )
             results.append(r)
             print(

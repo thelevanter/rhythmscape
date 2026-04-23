@@ -34,7 +34,7 @@
 		<key>Hour</key>
 		<integer>6</integer>
 		<key>Minute</key>
-		<integer>55</integer>
+		<integer>57</integer>
 	</dict>
 	<key>WorkingDirectory</key>
 	<string>/Users/dw/G-Drive2T/current_writings/Claude_Hackathon/rhythmscape</string>

@@ -33,21 +33,62 @@ def parse_hhmm(value: str) -> tuple[int, int]:
     return int(hh), int(mm)
 
 
-def minute_entries(start: str, end: str) -> list[dict[str, int]]:
-    """Return one ``{'Hour': h, 'Minute': m}`` entry per minute in the inclusive range."""
+def minute_entries(
+    start: str,
+    end: str,
+    stride_minutes: int = 1,
+) -> list[dict[str, int]]:
+    """Return ``{'Hour': h, 'Minute': m}`` entries between ``start`` and ``end``.
+
+    - ``stride_minutes`` controls step (1 = every minute, 10 = every ten).
+    - When ``end < start`` the window is overnight (e.g. ``20:00-06:59``):
+      we iterate forward through midnight and wrap into the next day.
+
+    The inclusive-endpoint rule is "stop at or before ``end``"; an entry is
+    placed at ``end`` only if the stride lands exactly on it, otherwise we
+    stop at the last stride-aligned minute that is still ≤ ``end``.
+    """
     sh, sm = parse_hhmm(start)
     eh, em = parse_hhmm(end)
+    start_min = sh * 60 + sm
+    end_min = eh * 60 + em
+    day = 24 * 60
+
+    if end_min >= start_min:
+        span = end_min - start_min
+    else:
+        span = (day - start_min) + end_min
+    # Inclusive of both endpoints if stride divides span evenly; otherwise
+    # the last entry is at start_min + floor(span / stride) * stride.
+    n_steps = span // stride_minutes + 1
+
     entries: list[dict[str, int]] = []
-    h, m = sh, sm
-    while (h, m) <= (eh, em):
+    for i in range(n_steps):
+        abs_min = (start_min + i * stride_minutes) % day
+        h, m = divmod(abs_min, 60)
         entries.append({"Hour": h, "Minute": m})
-        m += 1
-        if m >= 60:
-            m = 0
-            h += 1
-        if h >= 24:
-            break
     return entries
+
+
+def merged_entries(*windows: tuple[str, str, int]) -> list[dict[str, int]]:
+    """Union of multiple ``(start, end, stride)`` windows, deduplicated.
+
+    Used to stitch a day-tick window (07:00-19:59 stride 1) and a night-tick
+    window (20:00-06:59 stride 10) into one launchd ``StartCalendarInterval``
+    array, keeping exactly one job Label per city.
+    """
+    seen: set[tuple[int, int]] = set()
+    out: list[dict[str, int]] = []
+    for start, end, stride in windows:
+        for entry in minute_entries(start, end, stride_minutes=stride):
+            key = (entry["Hour"], entry["Minute"])
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(entry)
+    # Sort by (hour, minute) for readability in the resulting plist.
+    out.sort(key=lambda e: (e["Hour"], e["Minute"]))
+    return out
 
 
 def _program_args(
@@ -93,14 +134,30 @@ def build_tick_plist(
     window_end: str,
     cities_path: Path | None = None,
     city: str | None = None,
+    night_window: tuple[str, str] | None = None,
+    night_stride_minutes: int = 10,
 ) -> dict:
+    """Generate the tick plist. When ``night_window`` is provided, a second
+    (stride-spaced, overnight) window is merged into the same job.
+
+    The single-job design keeps one launchd Label per city regardless of
+    day/night split — simpler lifecycle (one unload/load) and unified log
+    file.
+    """
     logs_dir = project_root / "logs" / "tago"
+    if night_window is None:
+        intervals = minute_entries(window_start, window_end)
+    else:
+        intervals = merged_entries(
+            (window_start, window_end, 1),
+            (night_window[0], night_window[1], night_stride_minutes),
+        )
     return {
         "Label": _label("tick", city),
         "ProgramArguments": _program_args(
             project_root, "tick", config_path, cities_path, city
         ),
-        "StartCalendarInterval": minute_entries(window_start, window_end),
+        "StartCalendarInterval": intervals,
         "WorkingDirectory": str(project_root),
         "StandardOutPath": str(logs_dir / f"{_log_name('tick', city)}.out"),
         "StandardErrorPath": str(logs_dir / f"{_log_name('tick', city)}.err"),
@@ -171,12 +228,26 @@ def main() -> int:
     parser.add_argument(
         "--window",
         default="07:00-19:59",
-        help="Tick window HH:MM-HH:MM (default 07:00-19:59)",
+        help="Day tick window HH:MM-HH:MM (default 07:00-19:59)",
+    )
+    parser.add_argument(
+        "--night-window",
+        default=None,
+        help="Optional night tick window HH:MM-HH:MM (e.g. 20:00-06:59). "
+        "Overnight windows are supported (end < start wraps through midnight). "
+        "When provided, merged into the same tick plist with --night-stride.",
+    )
+    parser.add_argument(
+        "--night-stride",
+        type=int,
+        default=10,
+        help="Night window stride in minutes (default 10)",
     )
     parser.add_argument(
         "--anchor-time",
         default="06:55",
-        help="Anchor HH:MM (default 06:55)",
+        help="Anchor HH:MM (default 06:55). Staggered per city to avoid "
+        "TAGO session-pool saturation when large cities paginate.",
     )
     parser.add_argument(
         "--output-dir",
@@ -207,8 +278,19 @@ def main() -> int:
         cities_path = args.cities if args.cities.is_absolute() else (project_root / args.cities)
 
     start, end = args.window.split("-")
+    night_win = None
+    if args.night_window:
+        ns, ne = args.night_window.split("-")
+        night_win = (ns, ne)
     tick_plist = build_tick_plist(
-        project_root, config_path, start, end, cities_path=cities_path, city=args.city
+        project_root,
+        config_path,
+        start,
+        end,
+        cities_path=cities_path,
+        city=args.city,
+        night_window=night_win,
+        night_stride_minutes=args.night_stride,
     )
     anchor_plist = build_anchor_plist(
         project_root, config_path, args.anchor_time, cities_path=cities_path, city=args.city

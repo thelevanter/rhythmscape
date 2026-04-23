@@ -10,7 +10,7 @@
 	<key>KeepAlive</key>
 	<false/>
 	<key>Label</key>
-	<string>com.rhythmscape.tago-batch.sejong.anchor</string>
+	<string>com.rhythmscape.tago-batch.changwon.anchor</string>
 	<key>ProgramArguments</key>
 	<array>
 		<string>/Users/dw/G-Drive2T/current_writings/Claude_Hackathon/rhythmscape/.venv/bin/python</string>
@@ -21,20 +21,20 @@
 		<string>--cities</string>
 		<string>/Users/dw/G-Drive2T/current_writings/Claude_Hackathon/rhythmscape/config/cities.yaml</string>
 		<string>--city</string>
-		<string>sejong</string>
+		<string>changwon</string>
 	</array>
 	<key>RunAtLoad</key>
 	<false/>
 	<key>StandardErrorPath</key>
-	<string>/Users/dw/G-Drive2T/current_writings/Claude_Hackathon/rhythmscape/logs/tago/launchd.sejong.anchor.err</string>
+	<string>/Users/dw/G-Drive2T/current_writings/Claude_Hackathon/rhythmscape/logs/tago/launchd.changwon.anchor.err</string>
 	<key>StandardOutPath</key>
-	<string>/Users/dw/G-Drive2T/current_writings/Claude_Hackathon/rhythmscape/logs/tago/launchd.sejong.anchor.out</string>
+	<string>/Users/dw/G-Drive2T/current_writings/Claude_Hackathon/rhythmscape/logs/tago/launchd.changwon.anchor.out</string>
 	<key>StartCalendarInterval</key>
 	<dict>
 		<key>Hour</key>
 		<integer>6</integer>
 		<key>Minute</key>
-		<integer>59</integer>
+		<integer>55</integer>
 	</dict>
 	<key>WorkingDirectory</key>
 	<string>/Users/dw/G-Drive2T/current_writings/Claude_Hackathon/rhythmscape</string>

@@ -34,6 +34,7 @@ CITIES = [
     ("changwon", "창원"),
     ("seongnam_bundang", "성남 분당"),
     ("busan_yeongdo", "부산 영도"),
+    ("sejong", "세종"),
 ]
 
 BANDS = [
@@ -134,10 +135,21 @@ def format_markdown(
         f"{overall_min.tz_convert('Asia/Seoul').strftime('%H:%M') if overall_min else '—'} → "
         f"{overall_max.tz_convert('Asia/Seoul').strftime('%H:%M') if overall_max else '—'} KST"
     )
-    lines.append(
-        "**대상 도시**: 창원 · 성남 분당 · 부산 영도 "
-        "(세종은 `sejong_prescription_opacity.md`에 따라 제외)"
+    sejong_included = any(
+        (slug == "sejong" and not summary.empty and (summary[summary["city"] == label]["band_bins"] > 0).any())
+        for slug, label in CITIES
     )
+    if sejong_included:
+        lines.append(
+            "**대상 도시**: 창원 · 성남 분당 · 부산 영도 · **세종 포함** "
+            "(세종은 `sejongbis_scrape` prescribed로 Day 3 오전 복귀 — "
+            "`sejong_prescription_opacity.md` §3.2)"
+        )
+    else:
+        lines.append(
+            "**대상 도시**: 창원 · 성남 분당 · 부산 영도 "
+            "(세종은 `sejong_prescription_opacity.md`에 따라 현 분석 제외)"
+        )
     lines.append("")
     lines.append("---")
     lines.append("")
