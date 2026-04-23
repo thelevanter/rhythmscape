@@ -38,6 +38,7 @@ from rhythmscape.ingest.tago.client import (
     TagoClient,
     TagoKeyUnregistered,
     TagoQuotaExceeded,
+    TagoRateLimited,
 )
 from rhythmscape.ingest.tago.locations import save_locations_snapshot, snapshot_locations
 from rhythmscape.ingest.tago.routes import (
@@ -470,6 +471,24 @@ def run_minute_tick(cfg: Config) -> int:
         _write_checkpoint(_checkpoint_path(cfg), checkpoint)
         log.error("key_unregistered", endpoint=exc.endpoint)
         return 30
+    except TagoRateLimited as exc:
+        # HTTP 429: Day-3 Cowork will own quota-structure decisions.
+        # We snapshot the checkpoint immediately so the tick does not
+        # silently continue after a rate-limit event.
+        checkpoint["rate_limited_at"] = datetime.now(tz=timezone.utc).isoformat(
+            timespec="seconds"
+        )
+        checkpoint["last_error"] = f"rate_limited: {exc}"
+        checkpoint["rate_limit_retry_after"] = exc.retry_after
+        checkpoint["rate_limit_headers"] = exc.rate_headers
+        _write_checkpoint(_checkpoint_path(cfg), checkpoint)
+        log.error(
+            "rate_limited",
+            endpoint=exc.endpoint,
+            retry_after=exc.retry_after,
+            headers=exc.rate_headers,
+        )
+        return 429
     except TagoAPIError as exc:
         checkpoint["consecutive_failures"] = int(checkpoint.get("consecutive_failures", 0)) + 1
         checkpoint["last_error"] = f"{exc.code}: {exc}"
@@ -545,6 +564,8 @@ def main(argv: list[str] | None = None) -> int:
         return 22
     except TagoKeyUnregistered:
         return 30
+    except TagoRateLimited:
+        return 429
     except Exception as exc:
         log.exception("scheduler_fatal", error=str(exc))
         return 99

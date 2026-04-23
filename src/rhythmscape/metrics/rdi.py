@@ -116,28 +116,37 @@ def resolve_daytype(ts_local: datetime) -> str:
 # ---------------------------------------------------------------------------
 
 
-def load_locations(locations_dir: Path, for_date: date | None = None) -> pd.DataFrame:
-    """Read every ``locations/*.parquet`` into one DataFrame, optionally filtered to one local date.
+def load_locations(
+    locations_dir: Path,
+    for_date: date | None = None,
+    city: str | None = None,
+) -> pd.DataFrame:
+    """Read ``locations/*.parquet`` into one DataFrame, optionally filtered.
 
     Expected schema (from ``ingest/tago/locations.py``):
         snapshot_ts_utc, routeid, vehicleno, nodeid, nodenm, nodeord,
         gpslati, gpslong
 
-    The filename encodes the local date (YYYYMMDD), so we use it to subset
-    without parsing every file's content. When ``for_date`` is None, all
-    files are concatenated.
+    Filenames follow ``{city}_YYYYMMDD_HHMM00.parquet``. When ``city`` is
+    given, only that city's files are loaded — critical for the 4-city
+    multi-tenant layout where every city's parquets sit in the same
+    directory.
     """
     if not locations_dir.exists():
         raise FileNotFoundError(f"locations directory missing: {locations_dir}")
 
+    prefix = f"{city}_" if city else ""
     if for_date is not None:
         stamp = for_date.strftime("%Y%m%d")
-        paths = sorted(locations_dir.glob(f"*_{stamp}_*.parquet"))
+        paths = sorted(locations_dir.glob(f"{prefix}*{stamp}_*.parquet"))
     else:
-        paths = sorted(locations_dir.glob("*.parquet"))
+        paths = sorted(locations_dir.glob(f"{prefix}*.parquet"))
 
     if not paths:
-        raise FileNotFoundError(f"no locations parquet matched in {locations_dir}")
+        raise FileNotFoundError(
+            f"no locations parquet matched in {locations_dir} "
+            f"(city={city}, date={for_date})"
+        )
 
     frames = [pd.read_parquet(p) for p in paths]
     df = pd.concat(frames, ignore_index=True)
@@ -145,8 +154,32 @@ def load_locations(locations_dir: Path, for_date: date | None = None) -> pd.Data
     df["vehicleno"] = df["vehicleno"].astype(str)
     df["routeid"] = df["routeid"].astype(str)
     df["nodeid"] = df["nodeid"].astype(str)
-    log.info("locations_loaded", files=len(paths), rows=len(df))
+    log.info("locations_loaded", files=len(paths), rows=len(df), city=city)
     return df
+
+
+def load_routes_parquet(
+    routes_dir: Path,
+    city: str,
+    for_date: date,
+) -> pd.DataFrame:
+    """Load the most recent routes parquet for ``city`` on ``for_date``."""
+    stamp = for_date.strftime("%Y%m%d")
+    path = routes_dir / f"{city}_{stamp}.parquet"
+    if not path.exists():
+        candidates = sorted(routes_dir.glob(f"{city}_*.parquet"))
+        if not candidates:
+            raise FileNotFoundError(
+                f"no routes parquet for city={city} in {routes_dir}"
+            )
+        path = candidates[-1]
+        log.warning(
+            "routes_parquet_fallback",
+            city=city,
+            used=str(path),
+            expected_stamp=stamp,
+        )
+    return pd.read_parquet(path)
 
 
 def compute_vehicle_passages(locations_df: pd.DataFrame) -> pd.DataFrame:
@@ -342,3 +375,145 @@ def compute_rdi(
     passages = compute_vehicle_passages(locations_df)
     intervals = compute_observed_intervals(passages)
     return aggregate_rdi(intervals, prescribed_df, tz=tz, bin_minutes=bin_minutes)
+
+
+# ---------------------------------------------------------------------------
+# Per-city orchestrator + CLI entry point
+# ---------------------------------------------------------------------------
+
+
+def run_for_city(
+    city: str,
+    for_date: date,
+    raw_base: Path = Path("data/raw/tago"),
+    processed_base: Path = Path("data/processed/tago"),
+    bin_minutes: int = 30,
+    tz: str = "Asia/Seoul",
+) -> dict:
+    """Build prescribed + RDI parquets for a single city.
+
+    Writes:
+        {processed_base}/prescribed_intervals_{city}.parquet
+        {processed_base}/rdi_{city}_{YYYYMMDD}.parquet
+
+    Returns a summary dict with file paths and row counts — used by the
+    CLI and by the Day-2 preview orchestrator that runs all four cities.
+    """
+    stamp = for_date.strftime("%Y%m%d")
+    routes_df = load_routes_parquet(raw_base / "routes", city, for_date)
+    prescribed_df = build_prescribed_intervals(routes_df)
+    prescribed_path = save_prescribed_intervals(
+        prescribed_df,
+        processed_base / f"prescribed_intervals_{city}.parquet",
+    )
+
+    locations_df = load_locations(raw_base / "locations", for_date=for_date, city=city)
+    rdi_df = compute_rdi(
+        locations_df, prescribed_df, tz=tz, bin_minutes=bin_minutes
+    )
+    rdi_path = save_rdi(
+        rdi_df,
+        processed_base / f"rdi_{city}_{stamp}.parquet",
+    )
+    return {
+        "city": city,
+        "for_date": stamp,
+        "prescribed_path": str(prescribed_path),
+        "rdi_path": str(rdi_path),
+        "rdi_rows": int(len(rdi_df)),
+        "locations_rows": int(len(locations_df)),
+    }
+
+
+def _load_city_slugs(cities_yaml: Path) -> list[str]:
+    import yaml
+
+    with cities_yaml.open("r", encoding="utf-8") as fh:
+        cfg = yaml.safe_load(fh)
+    return sorted((cfg.get("cities") or {}).keys())
+
+
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Compute RDI v0 per city — writes prescribed + rdi parquets."
+    )
+    parser.add_argument(
+        "--city",
+        type=str,
+        default=None,
+        help="City slug (e.g. changwon). Omit with --all to run every city "
+        "in --cities.",
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Run for every city in --cities. Mutually exclusive with --city.",
+    )
+    parser.add_argument(
+        "--cities",
+        type=Path,
+        default=Path("config/cities.yaml"),
+        help="Multi-city manifest (default config/cities.yaml)",
+    )
+    parser.add_argument(
+        "--date",
+        type=str,
+        default=None,
+        help="Local date YYYYMMDD (default: today in Asia/Seoul)",
+    )
+    parser.add_argument(
+        "--raw-base",
+        type=Path,
+        default=Path("data/raw/tago"),
+    )
+    parser.add_argument(
+        "--processed-base",
+        type=Path,
+        default=Path("data/processed/tago"),
+    )
+    parser.add_argument(
+        "--bin-minutes",
+        type=int,
+        default=30,
+    )
+    args = parser.parse_args(argv)
+
+    if not args.all and args.city is None:
+        parser.error("either --city <slug> or --all is required")
+    if args.all and args.city is not None:
+        parser.error("--city and --all are mutually exclusive")
+
+    if args.date:
+        for_date = datetime.strptime(args.date, "%Y%m%d").date()
+    else:
+        from zoneinfo import ZoneInfo
+
+        for_date = datetime.now(tz=ZoneInfo("Asia/Seoul")).date()
+
+    cities = _load_city_slugs(args.cities) if args.all else [args.city]
+    results: list[dict] = []
+    for city in cities:
+        try:
+            r = run_for_city(
+                city=city,
+                for_date=for_date,
+                raw_base=args.raw_base,
+                processed_base=args.processed_base,
+                bin_minutes=args.bin_minutes,
+            )
+            results.append(r)
+            print(
+                f"✓ {city:<20} rdi_rows={r['rdi_rows']:<5} "
+                f"locations_rows={r['locations_rows']:<6} → {r['rdi_path']}"
+            )
+        except FileNotFoundError as exc:
+            print(f"✗ {city:<20} SKIPPED: {exc}")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+
+    sys.exit(main())

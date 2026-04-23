@@ -221,4 +221,48 @@
 
 ---
 
+## 2026-04-23 (목) — Day 2 오후 — 4도시 전환 + 파이프라인 일반화
+
+### 오늘 오후 한 일 (09:00 이후)
+
+**결정 경위 5줄 (상세는 docs/analysis/ 참조)**:
+
+1. **Committee 심의 반영** — Research Design Committee 4위원 + Red Team + 의장 권고(2026-04-23 오전, 외부 메모)를 받아 RQ 결정은 Day 3 오전으로 공식 연기, 오늘은 RQ-무관 공통분모(파이프라인 일반화·critique_flag) 작업만 수행. `critique_flag` 장치는 RDI 직후 후처리 레이어로 확정([[docs/analysis/critique_flag_spec.md]] §2–§8).
+2. **서울 탈락 → 성남 분당 이론적 대체** — 서울 TAGO 부재를 Day 2 오전 데이터 조회로 확인(cityCode 목록 133개에 서울 없음). "1970s 창원 vs 1970s 강남" 쌍을 포기하고 "국가 계획(창원) vs 민간 자본 계획(분당·판교)" 이항 대립으로 재구성([[docs/analysis/add_city_selection_rationale.md]] §0, §1).
+3. **4도시 가동** — 창원(flagship live) + 성남 분당(14:42 KST) + 세종(14:42) + 부산 영도(14:42) 동시 launchctl load. 일일 TAGO 호출 총 예산 ~8,640/day(endpoint별 분산), 쿼터 여유 있음. 커밋 `f18b55b`(리팩토링) → `35b32bb`(세종 완성) → `8560ce9`(영도 완성).
+4. **경주 Day 4 시연용 보류** — 사천(대체 → 경주로 선정 변경, Cowork 결정, 상세 [[add_city_selection_rationale.md]])은 add-city CLI 확장성 시연 용도로만. 오늘 구현·수집 미포함.
+5. **Day 2 오전 RDI v0 + critique_flag 완성** — 커밋 `d9d0046`. 창원 단일 도시 스코프로 DoD 8/8 달성. 오후에 4도시 일반화 착수.
+
+### 변경 파일 (오후)
+- `config/cities.yaml` — 4도시 manifest (창원·성남·세종·영도 라벨+routeid+theoretical_role)
+- `src/rhythmscape/ingest/tago/{scheduler.py, resolve_routes.py}` — `--city <slug>` CLI + 레거시 `--config` 호환
+- `scripts/gen_launchd_intervals.py` — `--city` per-city plist 생성
+- `src/rhythmscape/metrics/rdi.py` — `--city / --all` CLI, per-city prescribed + RDI 파일 분리 출력
+- `config/launchd/com.rhythmscape.tago-batch.{seongnam_bundang,sejong,busan_yeongdo}.{tick,anchor}.plist` (6 파일 신규)
+- `docs/analysis/add_city_selection_rationale.md` (§0–§4 전체)
+- `docs/analysis/sejong_prescribed_gap.md` (신규, 오후 블록 1 중 발견)
+
+### 오후 커밋 체인
+```
+8560ce9 feat(cities): Busan Yeongdo manifest + plists — 4-city set complete
+35b32bb feat(cities): Sejong manifest + pre-staged launchd plists
+f18b55b feat(ingest): multi-city TAGO ingest — parameterize by city slug
+d9d0046 feat(metrics): RDI v0 + critique_flag — Day 2 DoD complete
+```
+
+### 이슈 (오후 발견)
+- **세종 TAGO prescribed 누락**: `getRouteInfoIem`이 세종 3노선 모두 `intervaltime*` 필드 미반환. 세종 RDI v0 = 0 rows. 외부 소스(sejongbis.kr) 주입 또는 세종만 RDI 제외 필요. Day 3 오전 Cowork 결정 대상([[sejong_prescribed_gap.md]]).
+- 부산 영도 주말 필드(`intervalsattime/suntime`) NaN — 평일만 유효. Day 3~4 주말 비교 시 동일 문제 재출현 예상.
+
+### 다음 (18:00 프리뷰까지)
+- Block 3 (quota 모니터링) + Block 4 (271 intervaltime 검증)
+- 18:00 KST 4도시 비교 가능 RDI 재프리뷰 생성 (세종 제외 3도시)
+
+### 외부 참조 (Obsidian)
+- Cowork Day 1 세션 로그: `20_Projects/Cowork_Sessions/2026-04-22_tago-batch-launch.md`
+- TAGO API 레퍼런스: `99_Sources/api-references/tago-openapi.md`
+- (Day 2 Cowork 세션 로그는 저녁 19:00 Cowork가 작성 예정)
+
+---
+
 *빌드 시작일부터 매일 저녁 이 아래에 섹션 추가.*

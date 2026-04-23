@@ -15,6 +15,7 @@ from rhythmscape.ingest.tago.client import (
     TagoClient,
     TagoKeyUnregistered,
     TagoQuotaExceeded,
+    TagoRateLimited,
 )
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "TagoAPIError",
     "TagoQuotaExceeded",
     "TagoKeyUnregistered",
+    "TagoRateLimited",
 ]

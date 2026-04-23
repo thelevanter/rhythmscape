@@ -46,6 +46,37 @@ class TagoKeyUnregistered(TagoAPIError):
     """resultCode 30 — service key not registered or URL-double-encoded."""
 
 
+class TagoRateLimited(TagoAPIError):
+    """HTTP 429 — the request was throttled. Preserves ``Retry-After`` if present."""
+
+    def __init__(
+        self,
+        msg: str,
+        endpoint: str,
+        retry_after: str | None = None,
+        rate_headers: dict[str, str] | None = None,
+    ):
+        self.retry_after = retry_after
+        self.rate_headers = rate_headers or {}
+        super().__init__("429", msg, endpoint)
+
+
+# Response-header tokens we surface to the log for observability. TAGO does
+# not officially document rate-limit headers, but HTTP-layer proxies and
+# gateways routinely inject them (Retry-After, X-RateLimit-*, RateLimit-*,
+# quota-* variants). Any header whose name matches one of these substrings
+# is logged at INFO so Day-3 quota-structure analysis has a record.
+_RATE_HEADER_TOKENS = ("ratelimit", "rate-limit", "quota", "retry-after", "throttle")
+
+
+def _collect_rate_headers(headers) -> dict[str, str]:
+    return {
+        k: v
+        for k, v in headers.items()
+        if any(tok in k.lower() for tok in _RATE_HEADER_TOKENS)
+    }
+
+
 def _should_retry_network(exc: BaseException) -> bool:
     """Retry only on transient network errors + 5xx. Client errors (4xx) fail fast.
 
@@ -150,7 +181,39 @@ class TagoClient:
             **params,
         }
 
-        response = self._get(url, full_params)
+        try:
+            response = self._get(url, full_params)
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 429:
+                retry_after = exc.response.headers.get("Retry-After")
+                rate_headers = _collect_rate_headers(exc.response.headers)
+                log.error(
+                    "tago_rate_limited",
+                    service=service,
+                    endpoint=operation,
+                    status=429,
+                    retry_after=retry_after,
+                    rate_headers=rate_headers,
+                )
+                raise TagoRateLimited(
+                    msg=f"HTTP 429 on {service}/{operation}",
+                    endpoint=operation,
+                    retry_after=retry_after,
+                    rate_headers=rate_headers,
+                ) from exc
+            raise
+
+        # Observability: surface any rate-limit / quota-related response
+        # headers we happen to receive on a successful call. TAGO does not
+        # document these, so we log whatever we see for Day-3 analysis.
+        rate_headers = _collect_rate_headers(response.headers)
+        if rate_headers:
+            log.info(
+                "tago_rate_headers",
+                service=service,
+                endpoint=operation,
+                headers=rate_headers,
+            )
 
         try:
             raw = response.json()
