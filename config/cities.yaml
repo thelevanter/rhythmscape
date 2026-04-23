@@ -89,7 +89,13 @@ cities:
         theoretical_role: 분당 내부 고밀도 생활 리듬 — 창원 271의 혼잡형 대응
 
   # ---------------------------------------------------------------------------
-  # Sejong — awaiting Cowork candidates at 14:00 KST.
+  # Sejong — administrative capital, 2010s-generation planned city (add-city §2).
+  # Observation (Cowork 2026-04-23 14:00): B2 and 1004 are both classified as
+  # 광역버스 ("wide-area bus") in TAGO's routetp field. This is not incidental —
+  # Sejong's "regional integration premise" is inscribed into the taxonomy
+  # itself: even routes that stay inside Sejong city limits (B2) are labelled
+  # 광역 because the design presumes Daejeon/Cheongju spillover. Archive for
+  # the Day 3–4 bilingual brief.
   # ---------------------------------------------------------------------------
   sejong:
     city_name: sejong
@@ -97,7 +103,19 @@ cities:
     theme_label: 세종 (행정중심 신도시)
     api_base: https://apis.data.go.kr/1613000
     api_key_env: TAGO_API_KEY
-    routes: []
+    routes:
+      - routeid: SJB293000362
+        route_no: B2
+        route_type: 광역버스
+        theoretical_role: 세종 BRT 간선 (반석네거리↔오송역) — 계획 단계 통합 BRT, 창원 BRT6000의 "덧붙여짐"과 대조
+      - routeid: SJB293000178
+        route_no: "1004"
+        route_type: 광역버스
+        theoretical_role: 반석역(대전유성)↔장기중학교(세종4생활권) — 광역 기능 연계 필수성, 창원 710의 반대 극
+      - routeid: SJB293000030
+        route_no: "551"
+        route_type: 일반버스
+        theoretical_role: 조치원역↔산성동 — 구시가 잔여 지선, 창원 271과 방향 상반·위상 동일
 
   # ---------------------------------------------------------------------------
   # Busan Yeongdo — awaiting Cowork candidates at 15:00 KST.
