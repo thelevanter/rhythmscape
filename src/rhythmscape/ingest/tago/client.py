@@ -10,6 +10,7 @@ Encapsulates:
 from __future__ import annotations
 
 import hashlib
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -114,12 +115,23 @@ class TagoClient:
         api_key: str,
         timeout: float = DEFAULT_TIMEOUT,
         raw_dump_dir: Path | None = None,
+        min_request_interval_sec: float = 0.3,
     ):
+        """``min_request_interval_sec`` (default 300 ms): spaces sequential
+        calls so that TAGO's undocumented 30/30 concurrent-session pool does
+        not saturate when 4 cities fire tick simultaneously at the minute
+        boundary. Each city's ingest runs in its own process, so per-process
+        throttling also produces cross-process staggering because the first
+        batch of each tick takes long enough for the next city's first call
+        to land after the first has released sessions.
+        """
         if not api_key:
             raise ValueError("TAGO_API_KEY is empty — check .env loading")
         self.api_key = api_key
         self._http = httpx.Client(timeout=timeout)
         self._raw_dump_dir = raw_dump_dir or Path("logs/tago")
+        self._min_request_interval = float(min_request_interval_sec)
+        self._last_request_monotonic: float = 0.0
 
     def __enter__(self) -> "TagoClient":
         return self
@@ -180,6 +192,16 @@ class TagoClient:
             "_type": "json",
             **params,
         }
+
+        # Throttle: honor min_request_interval between consecutive calls on
+        # this client instance. First call of a new process has
+        # _last_request_monotonic=0 so the wait clause is skipped naturally.
+        if self._min_request_interval > 0:
+            now = time.monotonic()
+            delta = now - self._last_request_monotonic
+            if 0 < delta < self._min_request_interval:
+                time.sleep(self._min_request_interval - delta)
+            self._last_request_monotonic = time.monotonic()
 
         try:
             response = self._get(url, full_params)
